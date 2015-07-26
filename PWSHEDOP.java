@@ -9,6 +9,7 @@ import org.scijava.plugin.Menu;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
 
+import Jama.Matrix;
 import ij.ImagePlus;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
@@ -1637,10 +1638,11 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
 
                 // The system to solve is A x = -B X2
                 // building matrix A : laplacian for unseeded nodes
-
-                cs A2 = new cs(index.size() - numb_boundary, index.size() - numb_boundary, M * 2 + index.size(), 1, true);
-
-                A2.fill_A(index.size(), M, numb_boundary, index_edges, seeded_vertex, indic_sparse, nb_same_edges);
+                Matrix A2_m = new Matrix(index.size() - numb_boundary, index.size() - numb_boundary);
+                //                cs A2 = new cs(index.size() - numb_boundary, index.size() - numb_boundary, M * 2 + index.size(), 1, true);
+                fill_A(A2_m, index.size(), M, numb_boundary, index_edges, seeded_vertex, indic_sparse, nb_same_edges);
+                cs A2 = jama2cs(A2_m);
+                //                A2.fill_A(index.size(), M, numb_boundary, index_edges, seeded_vertex, indic_sparse, nb_same_edges);
                 // A = compressed-column form of A2
                 cs A = cs.cs_compress(A2);
 
@@ -1690,6 +1692,54 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                         for (int k = 0; k < numb_boundary; k++)
                                 proba[l][index.get(gPixels[k].local_seed.pointer).pointer] = boundary_values[l][k];
                 }
+        }
+
+        private cs jama2cs(Matrix A2_m) {
+                cs output = new cs(A2_m.getColumnDimension(), A2_m.getRowDimension(), A2_m.getColumnDimension() * A2_m.getRowDimension(), 1, true);
+                int cur = 0;
+                for (int i = 0; i < A2_m.getRowDimension(); i++) {
+                        for (int j = 0; j < A2_m.getColumnDimension(); j++) {
+                                if (A2_m.get(i, j) != 0) {
+                                        output.i[cur] = i;
+                                        output.p[cur] = j;
+                                        output.x[cur] = A2_m.get(i, j);
+                                        cur++;
+                                }
+                        }
+                }
+                return output;
+        }
+
+        private void fill_A(Matrix A, int N, int M, int numb_boundary, PWSHEDOP<T, L>.Pixel[][] index_edges, boolean[] seeded_vertex,
+                        int[] indic_sparse, int[] nb_same_edges) {
+                int rnz = 0;
+                // fill the diagonal
+                for (int k = 0; k < N; k++) {
+                        if (seeded_vertex[k] == false) {
+                                A.set(rnz, rnz, indic_sparse[k]);
+                                rnz++;
+                        }
+                }
+                int rnzs = 0;
+                int rnzu = 0;
+                for (int k = 0; k < N; k++) {
+                        if (seeded_vertex[k] == true) {
+                                indic_sparse[k] = rnzs;
+                                rnzs++;
+                        } else {
+                                indic_sparse[k] = rnzu;
+                                rnzu++;
+                        }
+                }
+                //                for (int k = 0; k < A.getColumnDimension(); k++) {
+                //                        if ((seeded_vertex[index_edges[0][k].pointer] == false) && (seeded_vertex[index_edges[1][k].pointer] == false)) {
+                //                                A.set(indic_sparse[index_edges[0][k].pointer], indic_sparse[index_edges[1][k].pointer], -nb_same_edges[k] - 1);
+                //                                rnz++;
+                //                                A.set(indic_sparse[index_edges[1][k].pointer], indic_sparse[index_edges[0][k].pointer], -nb_same_edges[k] - 1);
+                //                                rnz++;
+                //                                k = k + nb_same_edges[k];
+                //                        }
+                //                }
         }
 
         private void merge_node(Pixel e1, Pixel e2) {
