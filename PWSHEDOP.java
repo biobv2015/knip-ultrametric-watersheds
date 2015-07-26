@@ -11,16 +11,13 @@ import org.scijava.plugin.Plugin;
 
 import Jama.LUDecomposition;
 import Jama.Matrix;
-import ij.ImagePlus;
-import ij.process.ByteProcessor;
-import ij.process.FloatProcessor;
 import net.imagej.ImgPlus;
 import net.imagej.ops.Op;
 import net.imagej.ops.OpService;
 import net.imglib2.Cursor;
 import net.imglib2.RandomAccess;
 import net.imglib2.labeling.Labeling;
-import net.imglib2.labeling.NativeImgLabeling;
+import net.imglib2.labeling.LabelingType;
 import net.imglib2.type.numeric.IntegerType;
 
 @Plugin(menu = {@Menu(label = "DeveloperPlugins"),
@@ -32,7 +29,7 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                 int y;
                 int pointer;
                 Edge[] neighbors;
-                int label;
+                L label;
 
                 int Rnk;
                 PWSHEDOP<T, L>.Pixel Fth = this;
@@ -40,7 +37,7 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                 PWSHEDOP<T, L>.Pixel indic_VP;
                 PWSHEDOP<T, L>.Pixel local_seed;
 
-                Pixel(int x, int y, int label) {
+                Pixel(int x, int y, L label) {
                         this.x = x;
                         this.y = y;
                         this.label = label;
@@ -151,14 +148,14 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
         ArrayList<Pixel> seedsL;
         int width;
         int height;
-        ArrayList<Integer> labels;
+        ArrayList<L> labels;
         Pixel[] gPixels;
         Pixel[][] gPixelsT;
         float[][] proba;
         boolean weights = false;//sort egdges by weight
 
         @Parameter(type = ItemIO.OUTPUT)
-        private ImagePlus output;
+        private Labeling<L> output;
 
         @Parameter
         private ImgPlus<T> image_path;
@@ -176,8 +173,7 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
         public void run() {
 
                 final RandomAccess<T> imgRA = image_path.randomAccess();
-                final Cursor<? extends IntegerType<?>> seedCursor = ((NativeImgLabeling) seed_path).getStorageImg().cursor();
-
+                final Cursor<LabelingType<L>> seedCursor = seed_path.cursor();
                 // save the width for easy access
                 width = (int) image_path.dimension(0);
                 // save the height for easy access
@@ -201,13 +197,14 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                         }
                 }
                 seedsL = new ArrayList<>();
-                labels = new ArrayList<Integer>();
+                labels = new ArrayList<L>();
                 while (seedCursor.hasNext()) {
                         seedCursor.fwd();
-                        if (seedCursor.get().getInteger() > 0) {
-                                seedsL.add(new Pixel(seedCursor.getIntPosition(0), seedCursor.getIntPosition(1), seedCursor.get().getInteger()));
-                                if (!labels.contains(seedCursor.get().getInteger())) {
-                                        labels.add(seedCursor.get().getInteger());
+                        if (seedCursor.get().getLabeling().size() != 0) {
+                                L label = seedCursor.get().getLabeling().get(0);
+                                seedsL.add(new Pixel(seedCursor.getIntPosition(0), seedCursor.getIntPosition(1), label));
+                                if (!labels.contains(label)) {
+                                        labels.add(label);
                                 }
                         }
                 }
@@ -327,12 +324,34 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                         e.weight = seeds_function[e.number];
                 }
                 gageodilate_union_find();
-                int[] outputPixels = null;
-                outputPixels = PowerWatershed_q2();
-                output = new ImagePlus("mask.pgm", new ByteProcessor(new FloatProcessor(toTwoDim(outputPixels)), true));
+                PowerWatershed_q2();
+
+                // writing results
+                //TODO: Fix the confusion of labels
+                output = seed_path.copy();
+                Cursor<LabelingType<L>> outCursor = output.cursor();
+                for (int j = 0; j < numOfPixels; j++) {
+                        double maxi = 0;
+                        int argmax = 0;
+                        double val = 1;
+                        for (int k = 0; k < labels.size() - 1; k++) {
+                                if (proba[k][j] > maxi) {
+                                        maxi = proba[k][j];
+                                        argmax = k;
+                                }
+                                val = val - proba[k][j];
+
+                        }
+                        if (val > maxi)
+                                argmax = labels.size() - 1;
+                        outCursor.get().setLabel(labels.get(argmax));
+                        outCursor.fwd();
+                }
+
         }
 
-        private int[] PowerWatershed_q2() {
+        private void PowerWatershed_q2() {
+
                 proba = new float[labels.size() - 1][numOfPixels];
                 for (int i = 0; i < labels.size() - 1; i++) {
                         for (int j = 0; j < numOfPixels; j++) {
@@ -343,7 +362,7 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                 // proba[i][j] =1 <=> pixel[i] has label j+1
                 for (PWSHEDOP<T, L>.Pixel pix : seedsL) {
                         for (int j = 0; j < labels.size() - 1; j++) {
-                                if (pix.label == j + 1) {
+                                if (pix.label == labels.get(j + 1)) {
                                         proba[j][pix.pointer] = 1;
                                 } else {
                                         proba[j][pix.pointer] = 0;
@@ -520,27 +539,6 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                         for (int k = 0; k < labels.size() - 1; k++)
                                 proba[k][j.pointer] = proba[k][i.pointer];
                 }
-
-                // writing results
-                int[] Temp = new int[width * height];
-                for (int j = 0; j < numOfPixels; j++) {
-                        double maxi = 0;
-                        int argmax = 0;
-                        double val = 1;
-                        for (int k = 0; k < labels.size() - 1; k++) {
-                                if (proba[k][j] > maxi) {
-                                        maxi = proba[k][j];
-                                        argmax = k;
-                                }
-                                val = val - proba[k][j];
-
-                        }
-                        if (val > maxi)
-                                argmax = labels.size() - 1;
-                        Temp[j] = ((argmax) * 255) / (labels.size() - 1);
-                }
-
-                return Temp;
         }
 
         /**
