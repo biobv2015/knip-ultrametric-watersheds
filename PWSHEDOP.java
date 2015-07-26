@@ -581,50 +581,6 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                         this.x = values != 0 ? new double[this.nzmax] : null;
                 }
 
-                public void fill_A(int N, int M, int numb_boundary, PWSHEDOP.Pixel[][] index_edges, boolean[] seeded_vertex, int[] indic_sparse,
-                                int[] nb_same_edges) {
-                        int k;
-                        int rnz = 0;
-
-                        // fill the diagonal
-                        for (k = 0; k < N; k++) {
-                                if (seeded_vertex[k] == false) {
-                                        x[rnz] = indic_sparse[k]; // value
-                                        i[rnz] = rnz; // position 1
-                                        p[rnz] = rnz; // position 2
-                                        rnz++;
-                                }
-                        }
-                        int rnzs = 0;
-                        int rnzu = 0;
-
-                        for (k = 0; k < N; k++) {
-                                if (seeded_vertex[k] == true) {
-                                        indic_sparse[k] = rnzs;
-                                        rnzs++;
-                                } else {
-                                        indic_sparse[k] = rnzu;
-                                        rnzu++;
-                                }
-                        }
-                        for (k = 0; k < M; k++) {
-                                if ((seeded_vertex[index_edges[0][k].pointer] == false) && (seeded_vertex[index_edges[1][k].pointer] == false)) {
-                                        x[rnz] = -nb_same_edges[k] - 1;
-                                        i[rnz] = indic_sparse[index_edges[0][k].pointer];
-                                        p[rnz] = indic_sparse[index_edges[1][k].pointer];
-                                        rnz++;
-                                        x[rnz] = -nb_same_edges[k] - 1;
-                                        p[rnz] = indic_sparse[index_edges[0][k].pointer];
-                                        i[rnz] = indic_sparse[index_edges[1][k].pointer];
-                                        rnz++;
-                                        k = k + nb_same_edges[k];
-                                }
-                        }
-                        nz = rnz;
-                        m = N - numb_boundary;
-                        n = N - numb_boundary;
-                }
-
                 public static cs cs_compress(cs T) {
                         int m, n, nz, p, k;
                         int[] Cp, Ci, w, Ti, Tj;
@@ -1639,10 +1595,8 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                 // The system to solve is A x = -B X2
                 // building matrix A : laplacian for unseeded nodes
                 Matrix A2_m = new Matrix(index.size() - numb_boundary, index.size() - numb_boundary);
-                //                cs A2 = new cs(index.size() - numb_boundary, index.size() - numb_boundary, M * 2 + index.size(), 1, true);
                 fill_A(A2_m, index.size(), M, numb_boundary, index_edges, seeded_vertex, indic_sparse, nb_same_edges);
                 cs A2 = jama2cs(A2_m);
-                //                A2.fill_A(index.size(), M, numb_boundary, index_edges, seeded_vertex, indic_sparse, nb_same_edges);
                 // A = compressed-column form of A2
                 cs A = cs.cs_compress(A2);
 
