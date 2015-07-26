@@ -9,6 +9,7 @@ import org.scijava.plugin.Menu;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
 
+import Jama.LUDecomposition;
 import Jama.Matrix;
 import ij.ImagePlus;
 import ij.process.ByteProcessor;
@@ -1577,33 +1578,30 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                 fill_B(B2_m, index.size(), M, numb_boundary, index_edges, seeded_vertex, indic_sparse, nb_same_edges);
                 cs B2 = jama2cs(B2_m, 2 * M + index.size());
                 cs B = cs.cs_compress(B2);
+                LUDecomposition AXB = new LUDecomposition(A2_m);
 
                 // building the right hand side of the system
-                cs X = new cs(numb_boundary, 1, numb_boundary, 1, true);
-                double[] b = new double[index.size() - numb_boundary];
                 for (int l = 0; l < labels.size() - 1; l++) {
+                        Matrix X = new Matrix(numb_boundary, 1);
+                        double[] b = new double[index.size() - numb_boundary];
                         // building vector X
-                        int rnz = 0;
                         for (int i = 0; i < numb_boundary; i++) {
-                                X.x[rnz] = boundary_values[l][i];
-                                X.p[rnz] = 0;
-                                X.i[rnz] = i;
-                                rnz++;
+                                X.set(i, 0, boundary_values[l][i]);
                         }
-                        X.nz = rnz;
-                        X.m = numb_boundary;
-                        X.n = 1;
 
-                        cs X2 = cs.cs_compress(X);
-                        cs b_tmp = cs.cs_multiply(B, X2);
-
+                        Matrix b_tmp = B2_m.times(X);
                         for (int i = 0; i < index.size() - numb_boundary; i++)
                                 b[i] = 0;
-
-                        for (int i = 0; i < b_tmp.nzmax; i++)
-                                b[b_tmp.i[i]] = -b_tmp.x[i];
+                        for (int i = 0; i < b_tmp.getRowDimension(); i++) {
+                                for (int j = 0; j < b_tmp.getColumnDimension(); j++) {
+                                        if (b_tmp.get(i, j) != 0) {
+                                                b[i] = -b_tmp.get(i, j);
+                                        }
+                                }
+                        }
                         // solve Ax=b by LU decomposition, order = 1
-                        A.cs_lusol(1, b, 1e-7);
+                        //                        A.cs_lusol(1, b, 1e-7);
+                        b = AXB.solve(new Matrix(b, b.length)).getColumnPackedCopy();
 
                         int cpt = 0;
                         for (int k = 0; k < index.size(); k++) {
