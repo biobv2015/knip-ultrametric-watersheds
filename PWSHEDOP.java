@@ -1492,33 +1492,6 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                         return C; /* success; free workspace, return C */
                 }
 
-                public void fill_B(int N, int M, int numb_boundary, PWSHEDOP.Pixel[][] index_edges, boolean[] seeded_vertex, int[] indic_sparse,
-                                int[] nb_same_edges) {
-                        int k;
-                        int rnz;
-
-                        rnz = 0;
-                        for (k = 0; k < M; k++) {
-                                if (seeded_vertex[index_edges[0][k].pointer] == true) {
-                                        x[rnz] = -nb_same_edges[k] - 1;
-                                        p[rnz] = indic_sparse[index_edges[0][k].pointer];
-                                        i[rnz] = indic_sparse[index_edges[1][k].pointer];
-                                        rnz++;
-                                        k = k + nb_same_edges[k];
-                                } else if (seeded_vertex[index_edges[1][k].pointer] == true) {
-                                        x[rnz] = -nb_same_edges[k] - 1;
-                                        p[rnz] = indic_sparse[index_edges[1][k].pointer];
-                                        i[rnz] = indic_sparse[index_edges[0][k].pointer];
-                                        rnz++;
-                                        k = k + nb_same_edges[k];
-                                }
-                        }
-
-                        nz = rnz;
-                        m = N - numb_boundary;
-                        n = numb_boundary;
-                }
-
         }
 
         /**
@@ -1596,15 +1569,13 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                 // building matrix A : laplacian for unseeded nodes
                 Matrix A2_m = new Matrix(index.size() - numb_boundary, index.size() - numb_boundary);
                 fill_A(A2_m, index.size(), M, numb_boundary, index_edges, seeded_vertex, indic_sparse, nb_same_edges);
-                cs A2 = jama2cs(A2_m);
-                // A = compressed-column form of A2
+                cs A2 = jama2cs(A2_m, M * 2 + index.size());
                 cs A = cs.cs_compress(A2);
 
                 // building boundary matrix B
-
-                cs B2 = new cs(index.size() - numb_boundary, numb_boundary, 2 * M + index.size(), 1, true);
-
-                B2.fill_B(index.size(), M, numb_boundary, index_edges, seeded_vertex, indic_sparse, nb_same_edges);
+                Matrix B2_m = new Matrix(index.size() - numb_boundary, numb_boundary);
+                fill_B(B2_m, index.size(), M, numb_boundary, index_edges, seeded_vertex, indic_sparse, nb_same_edges);
+                cs B2 = jama2cs(B2_m, 2 * M + index.size());
                 cs B = cs.cs_compress(B2);
 
                 // building the right hand side of the system
@@ -1631,7 +1602,6 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
 
                         for (int i = 0; i < b_tmp.nzmax; i++)
                                 b[b_tmp.i[i]] = -b_tmp.x[i];
-
                         // solve Ax=b by LU decomposition, order = 1
                         A.cs_lusol(1, b, 1e-7);
 
@@ -1648,19 +1618,36 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                 }
         }
 
-        private cs jama2cs(Matrix A2_m) {
-                cs output = new cs(A2_m.getColumnDimension(), A2_m.getRowDimension(), A2_m.getColumnDimension() * A2_m.getRowDimension(), 1, true);
+        private void fill_B(Matrix B, int N, int M, int numb_boundary, PWSHEDOP<T, L>.Pixel[][] index_edges, boolean[] seeded_vertex,
+                        int[] indic_sparse, int[] nb_same_edges) {
+                for (int k = 0; k < M; k++) {
+                        if (seeded_vertex[index_edges[0][k].pointer] == true) {
+                                B.set(indic_sparse[index_edges[1][k].pointer], indic_sparse[index_edges[0][k].pointer], -nb_same_edges[k] - 1);
+                                k = k + nb_same_edges[k];
+                        } else if (seeded_vertex[index_edges[1][k].pointer] == true) {
+                                B.set(indic_sparse[index_edges[0][k].pointer], indic_sparse[index_edges[1][k].pointer], -nb_same_edges[k] - 1);
+                                k = k + nb_same_edges[k];
+                        }
+                }
+
+        }
+
+        private cs jama2cs(Matrix A, int nzmax) {
+                int n = A.getColumnDimension();
+                int m = A.getRowDimension();
+                cs output = new cs(m, n, nzmax, 1, true);
                 int cur = 0;
-                for (int i = 0; i < A2_m.getRowDimension(); i++) {
-                        for (int j = 0; j < A2_m.getColumnDimension(); j++) {
-                                if (A2_m.get(i, j) != 0) {
+                for (int i = 0; i < m; i++) {
+                        for (int j = 0; j < n; j++) {
+                                if (A.get(i, j) != 0) {
                                         output.i[cur] = i;
                                         output.p[cur] = j;
-                                        output.x[cur] = A2_m.get(i, j);
+                                        output.x[cur] = A.get(i, j);
                                         cur++;
                                 }
                         }
                 }
+                output.nz = cur;
                 return output;
         }
 
@@ -1685,15 +1672,15 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                                 rnzu++;
                         }
                 }
-                //                for (int k = 0; k < A.getColumnDimension(); k++) {
-                //                        if ((seeded_vertex[index_edges[0][k].pointer] == false) && (seeded_vertex[index_edges[1][k].pointer] == false)) {
-                //                                A.set(indic_sparse[index_edges[0][k].pointer], indic_sparse[index_edges[1][k].pointer], -nb_same_edges[k] - 1);
-                //                                rnz++;
-                //                                A.set(indic_sparse[index_edges[1][k].pointer], indic_sparse[index_edges[0][k].pointer], -nb_same_edges[k] - 1);
-                //                                rnz++;
-                //                                k = k + nb_same_edges[k];
-                //                        }
-                //                }
+                for (int k = 0; k < M; k++) {
+                        if ((seeded_vertex[index_edges[0][k].pointer] == false) && (seeded_vertex[index_edges[1][k].pointer] == false)) {
+                                A.set(indic_sparse[index_edges[0][k].pointer], indic_sparse[index_edges[1][k].pointer], -nb_same_edges[k] - 1);
+                                rnz++;
+                                A.set(indic_sparse[index_edges[1][k].pointer], indic_sparse[index_edges[0][k].pointer], -nb_same_edges[k] - 1);
+                                rnz++;
+                                k = k + nb_same_edges[k];
+                        }
+                }
         }
 
         private void merge_node(Pixel e1, Pixel e2) {
