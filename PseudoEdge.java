@@ -13,14 +13,14 @@ public class PseudoEdge<T extends IntegerType<T>, L extends Comparable<L>> imple
 
         @Override
         public int compareTo(PseudoEdge<T, L> p) {
-                if (p1.pointer < p.p1.pointer) {
+                if (p1.getPointer() < p.p1.getPointer()) {
                         return -1;
-                } else if (p1.pointer > p.p1.pointer) {
+                } else if (p1.getPointer() > p.p1.getPointer()) {
                         return 1;
                 } else {
-                        if (p2.pointer < p.p2.pointer) {
+                        if (p2.getPointer() < p.p2.getPointer()) {
                                 return -1;
-                        } else if (p2.pointer > p.p2.pointer) {
+                        } else if (p2.getPointer() > p.p2.getPointer()) {
                                 return 1;
                         } else {
                                 return 0;

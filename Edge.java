@@ -3,13 +3,13 @@ package org.knime.knip.example;
 import net.imglib2.type.numeric.IntegerType;
 
 public class Edge<T extends IntegerType<T>, L extends Comparable<L>> implements Comparable<Edge<T, L>> {
-        int n1x;
-        int n1y;
-        int n2x;
-        int n2y;
+        private final int n1x;
+        private final int n1y;
+        private final int n2x;
+        private final int n2y;
+        private final boolean vertical;
         int normal_weight;
         int weight;
-        boolean vertical;
         Edge<T, L>[] neighbors;
         int number;
         boolean visited;
@@ -55,5 +55,25 @@ public class Edge<T extends IntegerType<T>, L extends Comparable<L>> implements 
                 } else {
                         return 0;
                 }
+        }
+
+        int getN1x() {
+                return n1x;
+        }
+
+        int getN1y() {
+                return n1y;
+        }
+
+        int getN2x() {
+                return n2x;
+        }
+
+        int getN2y() {
+                return n2y;
+        }
+
+        boolean isVertical() {
+                return vertical;
         }
 }

@@ -3,12 +3,11 @@ package org.knime.knip.example;
 import net.imglib2.type.numeric.IntegerType;
 
 public class Pixel<T extends IntegerType<T>, L extends Comparable<L>> {
-        int x;
-        int y;
-        int pointer;
+        private final int x;
+        private final int y;
+        private final int pointer;
         Edge<T, L>[] neighbors;
         L label;
-
         int Rnk;
         Pixel<T, L> Fth = this;
         boolean visited;
@@ -28,5 +27,17 @@ public class Pixel<T extends IntegerType<T>, L extends Comparable<L>> {
                         Fth = Fth.find();
                 }
                 return Fth;
+        }
+
+        int getX() {
+                return x;
+        }
+
+        int getY() {
+                return y;
+        }
+
+        int getPointer() {
+                return pointer;
         }
 }
