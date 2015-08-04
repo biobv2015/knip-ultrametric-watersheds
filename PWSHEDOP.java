@@ -71,18 +71,18 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                 numOfPixels = height * width;
                 // If the image is colored the pixels are split into their R, G and B
                 // values.
-                if (color) {
-                        r_pixels = new int[width][height];
-                        g_pixels = new int[width][height];
-                        b_pixels = new int[width][height];
-                        for (int y = 0; y < height; y++) {
-                                for (int x = 0; x < width; x++) {
-                                        //                                        r_pixels[x][y] = (image[x][y] & (255 << 16)) >> 16;
-                                        //                                        g_pixels[x][y] = (image[x][y] & (255 << 8)) >> 8;
-                                        //                                        b_pixels[x][y] = image[x][y] & 255;
-                                }
-                        }
-                }
+                //                if (color) {
+                //                        r_pixels = new int[width][height];
+                //                        g_pixels = new int[width][height];
+                //                        b_pixels = new int[width][height];
+                //                        for (int y = 0; y < height; y++) {
+                //                                for (int x = 0; x < width; x++) {
+                //                                        r_pixels[x][y] = (image[x][y] & (255 << 16)) >> 16;
+                //                                        g_pixels[x][y] = (image[x][y] & (255 << 8)) >> 8;
+                //                                        b_pixels[x][y] = image[x][y] & 255;
+                //                                }
+                //                        }
+                //                }
                 seedsL = new ArrayList<>();
                 labels = new ArrayList<L>();
                 while (seedCursor.hasNext()) {
@@ -172,33 +172,33 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                         }
                 }
 
-                if (color) {
-                        for (Edge<T, L> e : edges) {
-                                int wr = Math.abs(r_pixels[e.n1x][e.n1y] - r_pixels[e.n2x][e.n2y]);
-                                int wg = Math.abs(g_pixels[e.n1x][e.n1y] - g_pixels[e.n2x][e.n2y]);
-                                int wb = Math.abs(b_pixels[e.n1x][e.n1y] - b_pixels[e.n2x][e.n2y]);
-                                e.weight = 255 - wr;
-                                if (255 - wg < e.weight) {
-                                        e.weight = 255 - wg;
-                                }
-                                if (255 - wb < e.weight) {
-                                        e.weight = 255 - wb;
-                                }
-                        }
-                        for (Edge<T, L> e : edges) {
-                                e.normal_weight = e.weight;
-                        }
-                } else {
-                        for (Edge<T, L> e : edges) {
-                                imgRA.setPosition(e.n1x, 0);
-                                imgRA.setPosition(e.n1y, 1);
-                                int v1 = imgRA.get().getInteger();
-                                imgRA.setPosition(e.n2x, 0);
-                                imgRA.setPosition(e.n2y, 1);
-                                int v2 = imgRA.get().getInteger();
-                                e.normal_weight = 255 - Math.abs(v1 - v2);
-                        }
+                //                if (color) {
+                //                        for (Edge<T, L> e : edges) {
+                //                                int wr = Math.abs(r_pixels[e.n1x][e.n1y] - r_pixels[e.n2x][e.n2y]);
+                //                                int wg = Math.abs(g_pixels[e.n1x][e.n1y] - g_pixels[e.n2x][e.n2y]);
+                //                                int wb = Math.abs(b_pixels[e.n1x][e.n1y] - b_pixels[e.n2x][e.n2y]);
+                //                                e.weight = 255 - wr;
+                //                                if (255 - wg < e.weight) {
+                //                                        e.weight = 255 - wg;
+                //                                }
+                //                                if (255 - wb < e.weight) {
+                //                                        e.weight = 255 - wb;
+                //                                }
+                //                        }
+                //                        for (Edge<T, L> e : edges) {
+                //                                e.normal_weight = e.weight;
+                //                        }
+                //                } else {
+                for (Edge<T, L> e : edges) {
+                        imgRA.setPosition(e.n1x, 0);
+                        imgRA.setPosition(e.n1y, 1);
+                        int v1 = imgRA.get().getInteger();
+                        imgRA.setPosition(e.n2x, 0);
+                        imgRA.setPosition(e.n2y, 1);
+                        int v2 = imgRA.get().getInteger();
+                        e.normal_weight = 255 - Math.abs(v1 - v2);
                 }
+                //                }
                 int[] seeds_function = new int[numOfEdges];
                 for (Pixel<T, L> p : seedsL) {
                         for (Edge<T, L> e : p.neighbors) {
@@ -259,8 +259,9 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                                 val = val - proba[k][j];
 
                         }
-                        if (val > maxi)
+                        if (val > maxi) {
                                 argmax = labels.size() - 1;
+                        }
                         outCursor.get().setLabel(labels.get(argmax));
                         outCursor.fwd();
                 }
@@ -295,8 +296,9 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
 
                 /* beginning of main loop */
                 for (Edge<T, L> e_max : sorted_weights) {
-                        if (e_max.visited)
+                        if (e_max.visited) {
                                 continue;
+                        }
 
                         // 1. Computing the edges of the plateau LCP linked to the edge
                         // e_max
@@ -345,10 +347,12 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                                 }
                         }
 
-                        for (Pixel<T, L> p : Plateau)
+                        for (Pixel<T, L> p : Plateau) {
                                 p.visited = false;
-                        for (Edge<T, L> e : LCP)
+                        }
+                        for (Edge<T, L> e : LCP) {
                                 e.visitedPlateau = false;
+                        }
 
                         // 3. If e_max belongs to a plateau
                         if (nb_edges > 0) {
@@ -363,8 +367,9 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                                                 if (Math.abs(proba[i][xr] - val) > epsilon && proba[i][xr] >= 0) {
                                                         p++;
                                                         val = proba[i][xr];
-                                                        if (p == 2)
+                                                        if (p == 2) {
                                                                 break;
+                                                        }
                                                 }
                                         }
                                         if (p >= 2) {
@@ -430,11 +435,12 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                                                 }
                                         }
 
-                                        for (Pixel<T, L> pix : Plateau)
+                                        for (Pixel<T, L> pix : Plateau) {
                                                 pix.visited = false;
-                                } else // if different seeds = false
-                                       // 7. Merge nodes for edges of max weight
-                                {
+                                        }
+                                } else {
+                                        // if different seeds = false
+                                        // 7. Merge nodes for edges of max weight
                                         for (int j = 0; j < nb_edges; j++) {
                                                 Pixel<T, L> e1 = edgesLCP[0][j];
                                                 Pixel<T, L> e2 = edgesLCP[1][j];
@@ -453,8 +459,9 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                                 i = xr;
                                 xr = i.Fth;
                         }
-                        for (int k = 0; k < labels.size() - 1; k++)
+                        for (int k = 0; k < labels.size() - 1; k++) {
                                 proba[k][j.pointer] = proba[k][i.pointer];
+                        }
                 }
         }
 
@@ -479,44 +486,32 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                 int[] nb_same_edges = new int[M];
 
                 // Indexing the edges, and the seeds
-                for (int i = 0; i < index.size(); i++)
+                for (int i = 0; i < index.size(); i++) {
                         index.get(i).indic_VP = gPixels[i];
+                }
 
                 for (int j = 0; j < M; j++) {
                         Pixel<T, L> v1 = edgeL.get(j).p1.indic_VP;
                         Pixel<T, L> v2 = edgeL.get(j).p2.indic_VP;
-                        // Pixel v1 = index_edges[0][j].indic_VP;
-                        // Pixel v2 = index_edges[1][j].indic_VP;
                         if (v1.pointer < v2.pointer) {
                                 edgeL.get(j).p1 = edgeL.get(j).p1.indic_VP;
                                 edgeL.get(j).p2 = edgeL.get(j).p2.indic_VP;
                                 indic_sparse[edgeL.get(j).p1.pointer]++;
                                 indic_sparse[edgeL.get(j).p2.pointer]++;
-                                // index_edges[0][j] = index_edges[0][j].indic_VP;
-                                // index_edges[1][j] = index_edges[1][j].indic_VP;
-                                // indic_sparse[index_edges[0][j].pointer]++;
-                                // indic_sparse[index_edges[1][j].pointer]++;
                         } else {
                                 edgeL.get(j).p2 = v1;
                                 edgeL.get(j).p1 = v2;
                                 indic_sparse[edgeL.get(j).p1.pointer]++;
                                 indic_sparse[edgeL.get(j).p2.pointer]++;
-                                // index_edges[1][j] = v1;
-                                // index_edges[0][j] = v2;
-                                // indic_sparse[index_edges[0][j].pointer]++;
-                                // indic_sparse[index_edges[1][j].pointer]++;
                         }
                 }
-                /* TriEdges(index_edges, M, nb_same_edges); */
-                {
-                        Collections.sort(edgeL);
-                        for (int m = 0; m < M; m++) {
-                                int n = 0;
-                                while ((m + n < M - 1) && edgeL.get(m + n).compareTo(edgeL.get(m + n + 1)) == 0) {
-                                        n++;
-                                }
-                                nb_same_edges[m] = n;
+                Collections.sort(edgeL);
+                for (int m = 0; m < M; m++) {
+                        int n = 0;
+                        while ((m + n < M - 1) && edgeL.get(m + n).compareTo(edgeL.get(m + n + 1)) == 0) {
+                                n++;
                         }
+                        nb_same_edges[m] = n;
                 }
 
                 for (int i = 0; i < numb_boundary; i++) {
@@ -549,8 +544,9 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                         }
 
                         Matrix b_tmp = B2_m.times(X);
-                        for (int i = 0; i < index.size() - numb_boundary; i++)
+                        for (int i = 0; i < index.size() - numb_boundary; i++) {
                                 b[i] = 0;
+                        }
                         for (int i = 0; i < b_tmp.getRowDimension(); i++) {
                                 for (int j = 0; j < b_tmp.getColumnDimension(); j++) {
                                         if (b_tmp.get(i, j) != 0) {
@@ -570,8 +566,9 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                                 }
                         }
                         // Enforce boundaries exactly
-                        for (int k = 0; k < numb_boundary; k++)
+                        for (int k = 0; k < numb_boundary; k++) {
                                 proba[l][index.get(gPixels[k].local_seed.pointer).pointer] = boundary_values[l][k];
+                        }
                 }
         }
 
