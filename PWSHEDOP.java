@@ -40,7 +40,6 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
         Pixel<T, L>[] gPixels;
         Pixel<T, L>[][] gPixelsT;
         float[][] proba;
-        boolean weights = false;//sort egdges by weight
 
         @Parameter(type = ItemIO.OUTPUT)
         private Labeling<L> output;
@@ -96,83 +95,83 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                                 }
                         }
                 }
-                {
-                        gPixels = new Pixel[numOfPixels];
-                        gPixelsT = new Pixel[width][height];
-                        for (int i = 0; i < width; i++) {
-                                for (int j = 0; j < height; j++) {
-                                        gPixelsT[i][j] = new Pixel<T, L>(i, j, labels.get(0), width);
-                                        gPixels[i + width * j] = gPixelsT[i][j];
-                                }
+                gPixels = new Pixel[numOfPixels];
+                gPixelsT = new Pixel[width][height];
+                for (int i = 0; i < width; i++) {
+                        for (int j = 0; j < height; j++) {
+                                gPixelsT[i][j] = new Pixel<T, L>(i, j, labels.get(0), width);
+                                gPixels[i + width * j] = gPixelsT[i][j];
                         }
-                        Edge<T, L>[][] hor_edges = new Edge[width - 1][height];
-                        Edge<T, L>[][] ver_edges = new Edge[width][height - 1];
-                        edges = new ArrayList<>();
-                        for (int i = 0; i < height - 1; i++) {
-                                for (int j = 0; j < width; j++) {
-                                        ver_edges[j][i] = new Edge<T, L>(j, i, j, i + 1, edges.size());
-                                        ver_edges[j][i].p1 = gPixelsT[j][i];
-                                        ver_edges[j][i].p2 = gPixelsT[j][i + 1];
-                                        edges.add(ver_edges[j][i]);
-                                }
+                }
+                edges = new ArrayList<>();
+                Edge<T, L>[][] hor_edges = new Edge[width - 1][height];
+                Edge<T, L>[][] ver_edges = new Edge[width][height - 1];
+
+                for (int i = 0; i < height - 1; i++) {
+                        for (int j = 0; j < width; j++) {
+                                ver_edges[j][i] = new Edge<T, L>(j, i, j, i + 1, edges.size());
+                                ver_edges[j][i].p1 = gPixelsT[j][i];
+                                ver_edges[j][i].p2 = gPixelsT[j][i + 1];
+                                edges.add(ver_edges[j][i]);
                         }
-                        for (int i = 0; i < height; i++) {
-                                for (int j = 0; j < width - 1; j++) {
-                                        hor_edges[j][i] = new Edge<T, L>(j, i, j + 1, i, edges.size());
-                                        hor_edges[j][i].p1 = gPixelsT[j][i];
-                                        hor_edges[j][i].p2 = gPixelsT[j + 1][i];
-                                        edges.add(hor_edges[j][i]);
-                                }
+                }
+                for (int i = 0; i < height; i++) {
+                        for (int j = 0; j < width - 1; j++) {
+                                hor_edges[j][i] = new Edge<T, L>(j, i, j + 1, i, edges.size());
+                                hor_edges[j][i].p1 = gPixelsT[j][i];
+                                hor_edges[j][i].p2 = gPixelsT[j + 1][i];
+                                edges.add(hor_edges[j][i]);
                         }
-                        for (int i = 0; i < numOfEdges; i++) {
-                                Edge<T, L> e = edges.get(i);
-                                if (!e.vertical) {
-                                        if (e.n1y > 0) {
-                                                e.neighbors[0] = ver_edges[e.n2x][e.n1y - 1];
-                                                e.neighbors[1] = ver_edges[e.n1x][e.n1y - 1];
-                                        }
-                                        if (e.n1x > 0) {
-                                                e.neighbors[2] = hor_edges[e.n1x - 1][e.n1y];
-                                        }
-                                        if (e.n1y < ver_edges[0].length - 1) {
-                                                e.neighbors[3] = ver_edges[e.n1x][e.n1y];
-                                                e.neighbors[4] = ver_edges[e.n2x][e.n1y];
-                                        }
-                                        if (e.n1x < hor_edges.length - 1) {
-                                                e.neighbors[5] = hor_edges[e.n2x][e.n1y];
-                                        }
-                                } else { // vertical
-                                        if (e.n1y > 0) {
-                                                e.neighbors[0] = ver_edges[e.n1x][e.n1y - 1];
-                                        }
-                                        if (e.n1x > 0) {
-                                                e.neighbors[1] = hor_edges[e.n1x - 1][e.n1y];
-                                                e.neighbors[2] = hor_edges[e.n2x - 1][e.n2y];
-                                        }
-                                        if (e.n2y < ver_edges[0].length - 1) {
-                                                e.neighbors[3] = ver_edges[e.n2x][e.n2y];
-                                        }
-                                        if (e.n1x < hor_edges.length - 1) {
-                                                e.neighbors[4] = hor_edges[e.n2x][e.n2y];
-                                                e.neighbors[5] = hor_edges[e.n1x][e.n1y];
-                                        }
+                }
+                for (int i = 0; i < numOfEdges; i++) {
+                        Edge<T, L> e = edges.get(i);
+                        if (!e.vertical) {
+                                if (e.n1y > 0) {
+                                        e.neighbors[0] = ver_edges[e.n2x][e.n1y - 1];
+                                        e.neighbors[1] = ver_edges[e.n1x][e.n1y - 1];
                                 }
-                        }
-                        for (Pixel<T, L> p : seedsL) {
-                                if (p.x < hor_edges.length) {
-                                        p.neighbors[0] = hor_edges[p.x][p.y];
+                                if (e.n1x > 0) {
+                                        e.neighbors[2] = hor_edges[e.n1x - 1][e.n1y];
                                 }
-                                if (p.y < ver_edges.length) {
-                                        p.neighbors[1] = ver_edges[p.x][p.y];
+                                if (e.n1y < ver_edges[0].length - 1) {
+                                        e.neighbors[3] = ver_edges[e.n1x][e.n1y];
+                                        e.neighbors[4] = ver_edges[e.n2x][e.n1y];
                                 }
-                                if (p.x > 0) {
-                                        p.neighbors[2] = hor_edges[p.x - 1][p.y];
+                                if (e.n1x < hor_edges.length - 1) {
+                                        e.neighbors[5] = hor_edges[e.n2x][e.n1y];
                                 }
-                                if (p.y > 0) {
-                                        p.neighbors[3] = ver_edges[p.x][p.y - 1];
+                        } else { // vertical
+                                if (e.n1y > 0) {
+                                        e.neighbors[0] = ver_edges[e.n1x][e.n1y - 1];
+                                }
+                                if (e.n1x > 0) {
+                                        e.neighbors[1] = hor_edges[e.n1x - 1][e.n1y];
+                                        e.neighbors[2] = hor_edges[e.n2x - 1][e.n2y];
+                                }
+                                if (e.n2y < ver_edges[0].length - 1) {
+                                        e.neighbors[3] = ver_edges[e.n2x][e.n2y];
+                                }
+                                if (e.n1x < hor_edges.length - 1) {
+                                        e.neighbors[4] = hor_edges[e.n2x][e.n2y];
+                                        e.neighbors[5] = hor_edges[e.n1x][e.n1y];
                                 }
                         }
                 }
+                for (Pixel<T, L> p : seedsL) {
+                        if (p.x < hor_edges.length) {
+                                p.neighbors[0] = hor_edges[p.x][p.y];
+                        }
+                        if (p.y < ver_edges.length) {
+                                p.neighbors[1] = ver_edges[p.x][p.y];
+                        }
+                        if (p.x > 0) {
+                                p.neighbors[2] = hor_edges[p.x - 1][p.y];
+                        }
+                        if (p.y > 0) {
+                                p.neighbors[3] = ver_edges[p.x][p.y - 1];
+                        }
+                }
+
                 if (color) {
                         for (Edge<T, L> e : edges) {
                                 int wr = Math.abs(r_pixels[e.n1x][e.n1y] - r_pixels[e.n2x][e.n2y]);
@@ -211,7 +210,37 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                 for (Edge<T, L> e : edges) {
                         e.weight = seeds_function[e.number];
                 }
-                gageodilate_union_find();
+                ArrayList<Edge<T, L>> seeds_func = (ArrayList<Edge<T, L>>) edges.clone();
+                Edge.weights = false;
+                Collections.sort(seeds_func);
+                Collections.reverse(seeds_func);
+                for (Edge<T, L> e : seeds_func) {
+                        for (Edge<T, L> n : e.neighbors) {
+                                if (n != null && n.Mrk) {
+                                        Edge<T, L> r = n.find();
+                                        if (r != e) {
+                                                if ((r.normal_weight == e.normal_weight) || (e.normal_weight >= r.weight)) {
+                                                        r.Fth = e;
+                                                        e.weight = Math.max(r.weight, e.weight);
+                                                } else {
+                                                        e.weight = 255;
+                                                }
+                                        }
+                                }
+                                e.Mrk = true;
+                        }
+                }
+                Collections.reverse(seeds_func);
+                for (Edge<T, L> e : seeds_func) {
+                        if (e.Fth == e) {
+                                // p is root
+                                if (e.weight == 255) {
+                                        e.weight = e.normal_weight;
+                                }
+                        } else {
+                                e.weight = e.Fth.weight;
+                        }
+                }
                 PowerWatershed_q2();
 
                 // writing results
@@ -260,7 +289,7 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                 float[][] local_labels = new float[labels.size() - 1][numOfPixels];
                 @SuppressWarnings("unchecked")
                 ArrayList<Edge<T, L>> sorted_weights = (ArrayList<Edge<T, L>>) edges.clone();
-                weights = true;
+                Edge.weights = true;
                 Collections.sort(sorted_weights);
                 Collections.reverse(sorted_weights);
 
@@ -347,7 +376,7 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                                 if (different_seeds == true) {
                                         // 5. Sort the edges of the plateau according to their
                                         // normal weight
-                                        weights = false;
+                                        Edge.weights = false;
                                         Collections.sort(sorted_weights2);
                                         Collections.reverse(sorted_weights2);
 
@@ -617,99 +646,6 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                                 }
                         }
                 }
-        }
-
-        private int[] boundary(int[] img) {
-                int[] out = new int[img.length];
-                for (int i = 2; i < width - 1; i++) {
-                        for (int j = 2; j < height - 1; j++) {
-                                if ((img[i - 1 + j * width] != img[i + j * width]) || (img[i + 1 + j * width] != img[i + j * width])
-                                                || (img[i + (j - 1) * width] != img[i + j * width])
-                                                || (img[i + (j + 1) * width] != img[i + j * width])) {
-                                        out[i + j * width] = 255;
-                                        out[i + 1 + j * width] = 255;
-                                        out[i - 1 + j * width] = 255;
-                                        out[i + (j - 1) * width] = 255;
-                                        out[i + (j + 1) * width] = 255;
-                                } else {
-                                        out[i + j * width] = 0;
-                                }
-                        }
-                }
-                return out;
-        }
-
-        private void gageodilate_union_find() {
-                // F = seeds_function
-                // M = numberOfEdges
-                // G = normal_weights
-                // O = weights
-                @SuppressWarnings("unchecked")
-                ArrayList<Edge<T, L>> seeds_func = (ArrayList<Edge<T, L>>) edges.clone();
-                weights = false;
-                Collections.sort(seeds_func);
-                Collections.reverse(seeds_func);
-                for (Edge<T, L> e : seeds_func) {
-                        for (Edge<T, L> n : e.neighbors) {
-                                if (n != null && n.Mrk) {
-                                        // element_link_geod_dilate(n, e);
-                                        {
-                                                Edge<T, L> r = n.find();
-                                                if (r != e) {
-                                                        if ((r.normal_weight == e.normal_weight) || (e.normal_weight >= r.weight)) {
-                                                                r.Fth = e;
-                                                                e.weight = Math.max(r.weight, e.weight);
-                                                        } else {
-                                                                e.weight = 255;
-                                                        }
-                                                }
-                                        }
-
-                                }
-                                e.Mrk = true;
-                        }
-                }
-                Collections.reverse(seeds_func);
-                for (Edge<T, L> e : seeds_func) {
-                        if (e.Fth == e) // p is root
-                        {
-                                if (e.weight == 255) {
-                                        e.weight = e.normal_weight;
-                                }
-                        } else {
-                                e.weight = e.Fth.weight;
-                        }
-                }
-        }
-
-        /**
-         * 
-         * @param input
-         *                2D array
-         * @return 1D version of it
-         */
-        private int[] toOneDim(int[][] input) {
-                int out[] = new int[numOfPixels];
-                for (int y = 0; y < height; y++) {
-                        for (int x = 0; x < width; x++) {
-                                out[y * width + x] = input[x][y];
-                        }
-                }
-                return out;
-        }
-
-        /**
-         * 
-         * @param input
-         *                1D array
-         * @return 2D version of it
-         */
-        private int[][] toTwoDim(int[] input) {
-                int out[][] = new int[width][height];
-                for (int i = 0; i < numOfPixels; i++) {
-                        out[i % width][i / width] = input[i];
-                }
-                return out;
         }
 
 }
