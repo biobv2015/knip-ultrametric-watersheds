@@ -429,9 +429,7 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                                                 System.out.printf("Plateau too big (%d vertices,%d edges), RW is not performed\n", Plateau.size(),
                                                                 Nnb_edges);
                                                 for (int j = 0; j < Nnb_edges; j++) {
-                                                        Pixel<T, L> e1 = edgesLCP[0][j];
-                                                        Pixel<T, L> e2 = edgesLCP[1][j];
-                                                        merge_node(e1.find(), e2.find());
+                                                        merge_node(edgesLCP[0][j].find(), edgesLCP[1][j].find());
                                                 }
                                         }
 
@@ -442,9 +440,7 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                                         // if different seeds = false
                                         // 7. Merge nodes for edges of max weight
                                         for (int j = 0; j < nb_edges; j++) {
-                                                Pixel<T, L> e1 = edgesLCP[0][j];
-                                                Pixel<T, L> e2 = edgesLCP[1][j];
-                                                merge_node(e1.find(), e2.find());
+                                                merge_node(edgesLCP[0][j].find(), edgesLCP[1][j].find());
                                         }
                                 }
                         }
@@ -453,12 +449,7 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
 
                 // building the final proba map (find the root vertex of each tree)
                 for (Pixel<T, L> j : gPixels) {
-                        Pixel<T, L> i = j;
-                        Pixel<T, L> xr = i.Fth;
-                        while (i.Fth != i) {
-                                i = xr;
-                                xr = i.Fth;
-                        }
+                        Pixel<T, L> i = j.find();
                         for (int k = 0; k < labels.size() - 1; k++) {
                                 proba[k][j.getPointer()] = proba[k][i.getPointer()];
                         }
@@ -490,19 +481,19 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                         index.get(i).indic_VP = gPixels[i];
                 }
 
-                for (int j = 0; j < M; j++) {
-                        Pixel<T, L> v1 = edgeL.get(j).p1.indic_VP;
-                        Pixel<T, L> v2 = edgeL.get(j).p2.indic_VP;
+                for (PseudoEdge<T, L> pe : edgeL) {
+                        Pixel<T, L> v1 = pe.p1.indic_VP;
+                        Pixel<T, L> v2 = pe.p2.indic_VP;
                         if (v1.getPointer() < v2.getPointer()) {
-                                edgeL.get(j).p1 = edgeL.get(j).p1.indic_VP;
-                                edgeL.get(j).p2 = edgeL.get(j).p2.indic_VP;
-                                indic_sparse[edgeL.get(j).p1.getPointer()]++;
-                                indic_sparse[edgeL.get(j).p2.getPointer()]++;
+                                pe.p1 = pe.p1.indic_VP;
+                                pe.p2 = pe.p2.indic_VP;
+                                indic_sparse[pe.p1.getPointer()]++;
+                                indic_sparse[pe.p2.getPointer()]++;
                         } else {
-                                edgeL.get(j).p2 = v1;
-                                edgeL.get(j).p1 = v2;
-                                indic_sparse[edgeL.get(j).p1.getPointer()]++;
-                                indic_sparse[edgeL.get(j).p2.getPointer()]++;
+                                pe.p2 = v1;
+                                pe.p1 = v2;
+                                indic_sparse[pe.p1.getPointer()]++;
+                                indic_sparse[pe.p2.getPointer()]++;
                         }
                 }
                 Collections.sort(edgeL);
@@ -531,7 +522,7 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
 
                 // building boundary matrix B
                 Matrix B2_m = new Matrix(index.size() - numb_boundary, numb_boundary);
-                fill_B(B2_m, index.size(), M, numb_boundary, index_edges, seeded_vertex, indic_sparse, nb_same_edges);
+                fill_B(B2_m, M, index_edges, seeded_vertex, indic_sparse, nb_same_edges);
                 LUDecomposition AXB = new LUDecomposition(A2_m);
 
                 // building the right hand side of the system
@@ -560,7 +551,7 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
 
                         int cpt = 0;
                         for (int k = 0; k < index.size(); k++) {
-                                if (seeded_vertex[k] == false) {
+                                if (!seeded_vertex[k]) {
                                         proba[l][index.get(k).getPointer()] = (float) b[cpt];
                                         cpt++;
                                 }
@@ -572,17 +563,16 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                 }
         }
 
-        private void fill_B(Matrix B, int N, int M, int numb_boundary, Pixel<T, L>[][] index_edges, boolean[] seeded_vertex, int[] indic_sparse,
-                        int[] nb_same_edges) {
+        private void fill_B(Matrix B, int M, Pixel<T, L>[][] index_edges, boolean[] seeded_vertex, int[] indic_sparse, int[] nb_same_edges) {
                 for (int k = 0; k < M; k++) {
-                        if (seeded_vertex[index_edges[0][k].getPointer()] == true) {
-                                B.set(indic_sparse[index_edges[1][k].getPointer()], indic_sparse[index_edges[0][k].getPointer()],
-                                                -nb_same_edges[k] - 1);
-                                k = k + nb_same_edges[k];
-                        } else if (seeded_vertex[index_edges[1][k].getPointer()] == true) {
-                                B.set(indic_sparse[index_edges[0][k].getPointer()], indic_sparse[index_edges[1][k].getPointer()],
-                                                -nb_same_edges[k] - 1);
-                                k = k + nb_same_edges[k];
+                        int p1 = index_edges[0][k].getPointer();
+                        int p2 = index_edges[1][k].getPointer();
+                        if (seeded_vertex[p1] == true) {
+                                B.set(indic_sparse[p2], indic_sparse[p1], -nb_same_edges[k] - 1);
+                                k += nb_same_edges[k];
+                        } else if (seeded_vertex[p2] == true) {
+                                B.set(indic_sparse[p1], indic_sparse[p2], -nb_same_edges[k] - 1);
+                                k += nb_same_edges[k];
                         }
                 }
 
@@ -601,7 +591,7 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                 int rnzs = 0;
                 int rnzu = 0;
                 for (int k = 0; k < N; k++) {
-                        if (seeded_vertex[k] == true) {
+                        if (seeded_vertex[k]) {
                                 indic_sparse[k] = rnzs;
                                 rnzs++;
                         } else {
@@ -610,40 +600,48 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                         }
                 }
                 for (int k = 0; k < M; k++) {
-                        if ((seeded_vertex[index_edges[0][k].getPointer()] == false) && (seeded_vertex[index_edges[1][k].getPointer()] == false)) {
-                                A.set(indic_sparse[index_edges[0][k].getPointer()], indic_sparse[index_edges[1][k].getPointer()],
-                                                -nb_same_edges[k] - 1);
-                                rnz++;
-                                A.set(indic_sparse[index_edges[1][k].getPointer()], indic_sparse[index_edges[0][k].getPointer()],
-                                                -nb_same_edges[k] - 1);
-                                rnz++;
-                                k = k + nb_same_edges[k];
+                        int p1 = index_edges[0][k].getPointer();
+                        int p2 = index_edges[1][k].getPointer();
+                        if ((seeded_vertex[p1] == false) && (seeded_vertex[p2] == false)) {
+                                A.set(indic_sparse[p1], indic_sparse[p2], -nb_same_edges[k] - 1);
+                                A.set(indic_sparse[p2], indic_sparse[p1], -nb_same_edges[k] - 1);
+                                k += nb_same_edges[k];
                         }
                 }
         }
 
-        private void merge_node(Pixel<T, L> e1, Pixel<T, L> e2) {
-                if ((e1 != e2) && (proba[0][e1.getPointer()] < 0 || proba[0][e2.getPointer()] < 0)) {
+        /**
+         * merges two pixels as in the else-clause of the algorithm by Camille
+         * Couprie
+         * 
+         * @param p1
+         *                first pixel
+         * @param p2
+         *                second pixel
+         */
+        private void merge_node(Pixel<T, L> p1, Pixel<T, L> p2) {
+                //merge if e1!=e2 and one of them has no probability yet
+                if ((p1 != p2) && (proba[0][p1.getPointer()] < 0 || proba[0][p2.getPointer()] < 0)) {
                         // link re1 and re2;
                         // the Pixel with the smaller Rnk points to the other
                         // if both have the same rank increase the rnk of e2
-                        if (e1.Rnk > e2.Rnk) {
-                                e2.Fth = e1;
+                        if (p1.Rnk > p2.Rnk) {
+                                p2.Fth = p1;
                         } else {
-                                if (e1.Rnk == e2.Rnk) {
-                                        e2.Rnk = e2.Rnk + 1;
+                                if (p1.Rnk == p2.Rnk) {
+                                        p2.Rnk = p2.Rnk + 1;
                                 }
-                                e1.Fth = e2;
+                                p1.Fth = p2;
                         }
 
                         // which one has proba[0] < 0? Fill proba[_][ex] with proba[_][ey]
-                        if (proba[0][e1.getPointer()] < 0) {
+                        if (proba[0][p1.getPointer()] < 0) {
                                 for (int k = 0; k < labels.size() - 1; k++) {
-                                        proba[k][e1.getPointer()] = proba[k][e2.getPointer()];
+                                        proba[k][p1.getPointer()] = proba[k][p2.getPointer()];
                                 }
                         } else {
                                 for (int k = 0; k < labels.size() - 1; k++) {
-                                        proba[k][e2.getPointer()] = proba[k][e1.getPointer()];
+                                        proba[k][p2.getPointer()] = proba[k][p1.getPointer()];
                                 }
                         }
                 }
