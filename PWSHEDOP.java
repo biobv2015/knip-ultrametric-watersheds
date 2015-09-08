@@ -303,10 +303,9 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                 for (Pixel<T, L> pix : seedsL) {
                         int pixPointer = pix.getPointer();
                         for (int j = 0; j < labels.size() - 1; j++) {
-                                proba[j][pixPointer] = pix.label == labels.get(j + 1) ? 1 : 0;
+                                proba[j][pixPointer] = pix.label == labels.get(j) ? 1 : 0;
                         }
                 }
-                float[][] local_labels = new float[labels.size() - 1][numOfPixels];
                 @SuppressWarnings("unchecked")
                 ArrayList<Edge<T, L>> sorted_weights = (ArrayList<Edge<T, L>>) edges.clone();
                 Edge.weights = true;
@@ -337,13 +336,11 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                                 Pixel<T, L> re1 = x.p1.find();
                                 Pixel<T, L> re2 = x.p2.find();
                                 if (proba[0][re1.getPointer()] < 0 || proba[0][re2.getPointer()] < 0) {
-                                        if (!x.p1.visited) {
+                                        if (!Plateau.contains(x.p1)) {
                                                 Plateau.add(x.p1);
-                                                x.p1.visited = true;
                                         }
-                                        if (!x.p2.visited) {
+                                        if (!Plateau.contains(x.p2)) {
                                                 Plateau.add(x.p2);
-                                                x.p2.visited = true;
                                         }
                                         sorted_weights2.add(x);
                                 }
@@ -357,10 +354,6 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                                                 }
                                         }
                                 }
-                        }
-
-                        for (Pixel<T, L> p : Plateau) {
-                                p.visited = false;
                         }
 
                         // 3. If e_max belongs to a plateau
@@ -404,44 +397,38 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                                                         merge_node(re1, re2);
                                                 } else {
                                                         if ((re1 != re2) && ((proba[0][re1.getPointer()] < 0 || proba[0][re2.getPointer()] < 0))) {
-                                                                if (!re1.visited) {
+                                                                if (!Plateau.contains(re1)) {
                                                                         Plateau.add(re1);
-                                                                        re1.visited = true;
                                                                 }
-                                                                if (!re2.visited) {
+                                                                if (!Plateau.contains(re2)) {
                                                                         Plateau.add(re2);
-                                                                        re2.visited = true;
                                                                 }
                                                                 edgesLCP.add(new PseudoEdge<>(re1, re2));
                                                         }
                                                 }
                                         }
 
-                                        int k = 0;
+                                        ArrayList<ArrayList<Float>> local_labels = new ArrayList<>();
                                         for (int i = 0; i < labels.size() - 1; i++) {
-                                                k = 0;
+                                                ArrayList<Float> curLocLabel = new ArrayList<>();
                                                 for (Pixel<T, L> xr : Plateau) {
                                                         if (proba[i][xr.getPointer()] >= 0) {
-                                                                local_labels[i][k] = proba[i][xr.getPointer()];
-                                                                gPixels[k].local_seed = xr;
-                                                                k++;
+                                                                gPixels[curLocLabel.size()].local_seed = xr;
+                                                                curLocLabel.add(new Float(proba[i][xr.getPointer()]));
                                                         }
                                                 }
+                                                local_labels.add(curLocLabel);
                                         }
 
                                         // 6. Execute Random Walker on plateaus
                                         if (Plateau.size() < SIZE_MAX_PLATEAU) {
-                                                RandomWalker(edgesLCP, Plateau, local_labels, k);
+                                                RandomWalker(edgesLCP, Plateau, local_labels);
                                         } else {
                                                 System.out.printf("Plateau too big (%d vertices,%d edges), RW is not performed\n", Plateau.size(),
                                                                 edgesLCP.size());
                                                 for (PseudoEdge<T, L> pseudo : edgesLCP) {
                                                         merge_node(pseudo.p1.find(), pseudo.p2.find());
                                                 }
-                                        }
-
-                                        for (Pixel<T, L> pix : Plateau) {
-                                                pix.visited = false;
                                         }
                                 } else {
                                         // if different seeds = false
@@ -469,10 +456,9 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
          * @param index
          *                nodes of the plateau
          * @param boundary_values
-         * @param numb_boundary
          */
-        private void RandomWalker(ArrayList<PseudoEdge<T, L>> index_edges, ArrayList<Pixel<T, L>> index, float[][] boundary_values,
-                        int numb_boundary) {
+        private void RandomWalker(ArrayList<PseudoEdge<T, L>> index_edges, ArrayList<Pixel<T, L>> index,
+                        ArrayList<ArrayList<Float>> boundary_values) {
                 ArrayList<PseudoEdge<T, L>> edgeL = new ArrayList<>();
                 for (PseudoEdge<T, L> pseudo : index_edges) {
                         edgeL.add(new PseudoEdge<T, L>(pseudo.p1, pseudo.p2));
@@ -486,19 +472,19 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                         index.get(i).indic_VP = gPixels[i];
                 }
 
-                for (PseudoEdge<T, L> pe : edgeL) {
-                        Pixel<T, L> v1 = pe.p1.indic_VP;
-                        Pixel<T, L> v2 = pe.p2.indic_VP;
+                for (PseudoEdge<T, L> pseudo : edgeL) {
+                        Pixel<T, L> v1 = pseudo.p1.indic_VP;
+                        Pixel<T, L> v2 = pseudo.p2.indic_VP;
                         if (v1.getPointer() < v2.getPointer()) {
-                                pe.p1 = pe.p1.indic_VP;
-                                pe.p2 = pe.p2.indic_VP;
-                                indic_sparse[pe.p1.getPointer()]++;
-                                indic_sparse[pe.p2.getPointer()]++;
+                                pseudo.p1 = pseudo.p1.indic_VP;
+                                pseudo.p2 = pseudo.p2.indic_VP;
+                                indic_sparse[pseudo.p1.getPointer()]++;
+                                indic_sparse[pseudo.p2.getPointer()]++;
                         } else {
-                                pe.p2 = v1;
-                                pe.p1 = v2;
-                                indic_sparse[pe.p1.getPointer()]++;
-                                indic_sparse[pe.p2.getPointer()]++;
+                                pseudo.p2 = v1;
+                                pseudo.p1 = v2;
+                                indic_sparse[pseudo.p1.getPointer()]++;
+                                indic_sparse[pseudo.p2.getPointer()]++;
                         }
                 }
                 Collections.sort(edgeL);
@@ -509,6 +495,8 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                         }
                         nb_same_edges[m] = n;
                 }
+
+                int numb_boundary = boundary_values.get(boundary_values.size() - 1).size();
 
                 for (int i = 0; i < numb_boundary; i++) {
                         gPixels[i].local_seed = gPixels[i].local_seed.indic_VP;
@@ -531,7 +519,7 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                         double[] b = new double[index.size() - numb_boundary];
                         // building vector X
                         for (int i = 0; i < numb_boundary; i++) {
-                                X.set(i, 0, boundary_values[l][i]);
+                                X.set(i, 0, boundary_values.get(l).get(i).floatValue());
                         }
 
                         Matrix b_tmp = B2_m.times(X);
@@ -558,7 +546,7 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                         }
                         // Enforce boundaries exactly
                         for (int k = 0; k < numb_boundary; k++) {
-                                proba[l][index.get(gPixels[k].local_seed.getPointer()).getPointer()] = boundary_values[l][k];
+                                proba[l][index.get(gPixels[k].local_seed.getPointer()).getPointer()] = boundary_values.get(l).get(k).floatValue();
                         }
                 }
         }
