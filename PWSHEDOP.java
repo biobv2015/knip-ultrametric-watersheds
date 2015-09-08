@@ -1,7 +1,9 @@
 package org.knime.knip.example;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Stack;
 
 import org.scijava.ItemIO;
@@ -41,12 +43,14 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
         Pixel<T, L>[][] gPixelsT;
         float[][] proba;
 
+        @SuppressWarnings("deprecation")
         @Parameter(type = ItemIO.OUTPUT)
         private Labeling<L> output;
 
         @Parameter
         private ImgPlus<T> image_path;
 
+        @SuppressWarnings("deprecation")
         @Parameter
         private Labeling<L> seed_path;
 
@@ -60,6 +64,7 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
         public void run() {
 
                 final RandomAccess<T> imgRA = image_path.randomAccess();
+                @SuppressWarnings("deprecation")
                 final Cursor<LabelingType<L>> seedCursor = seed_path.cursor();
                 // save the width for easy access
                 width = (int) image_path.dimension(0);
@@ -85,16 +90,24 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                 //                }
                 seedsL = new ArrayList<>();
                 labels = new ArrayList<L>();
+                /*
+                 * Get the seeds from the input labeling. "labels" is the List of the labels, while "seedsL" stores the seeds.
+                 */
                 while (seedCursor.hasNext()) {
                         seedCursor.fwd();
-                        if (seedCursor.get().getLabeling().size() != 0) {
-                                L label = seedCursor.get().getLabeling().get(0);
+                        List<L> labeling = seedCursor.get().getLabeling();
+                        if (labeling.size() != 0) {
+                                L label = labeling.get(0);
                                 seedsL.add(new Pixel<T, L>(seedCursor.getIntPosition(0), seedCursor.getIntPosition(1), label, width));
                                 if (!labels.contains(label)) {
                                         labels.add(label);
                                 }
                         }
                 }
+
+                /*
+                 * Create a "Pixel" for each pixel in the input, all are labeled as label_0
+                 */
                 gPixels = new Pixel[numOfPixels];
                 gPixelsT = new Pixel[width][height];
                 for (int i = 0; i < width; i++) {
@@ -103,26 +116,29 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                                 gPixels[i + width * j] = gPixelsT[i][j];
                         }
                 }
+
+                /*
+                 * Create the edges.
+                 */
                 edges = new ArrayList<>();
                 Edge<T, L>[][] hor_edges = new Edge[width - 1][height];
                 Edge<T, L>[][] ver_edges = new Edge[width][height - 1];
-
                 for (int i = 0; i < height - 1; i++) {
                         for (int j = 0; j < width; j++) {
-                                ver_edges[j][i] = new Edge<T, L>(j, i, j, i + 1, edges.size());
-                                ver_edges[j][i].p1 = gPixelsT[j][i];
-                                ver_edges[j][i].p2 = gPixelsT[j][i + 1];
+                                ver_edges[j][i] = new Edge<T, L>(gPixelsT[j][i], gPixelsT[j][i + 1], edges.size());
                                 edges.add(ver_edges[j][i]);
                         }
                 }
                 for (int i = 0; i < height; i++) {
                         for (int j = 0; j < width - 1; j++) {
-                                hor_edges[j][i] = new Edge<T, L>(j, i, j + 1, i, edges.size());
-                                hor_edges[j][i].p1 = gPixelsT[j][i];
-                                hor_edges[j][i].p2 = gPixelsT[j + 1][i];
+                                hor_edges[j][i] = new Edge<T, L>(gPixelsT[j][i], gPixelsT[j + 1][i], edges.size());
                                 edges.add(hor_edges[j][i]);
                         }
                 }
+
+                /*
+                 * get the neighbor-information
+                 */
                 for (int i = 0; i < numOfEdges; i++) {
                         Edge<T, L> e = edges.get(i);
                         if (!e.isVertical()) {
@@ -140,7 +156,7 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                                 if (e.getN1x() < hor_edges.length - 1) {
                                         e.neighbors[5] = hor_edges[e.getN2x()][e.getN1y()];
                                 }
-                        } else { // vertical
+                        } else { // e.isVertical()
                                 if (e.getN1y() > 0) {
                                         e.neighbors[0] = ver_edges[e.getN1x()][e.getN1y() - 1];
                                 }
@@ -157,6 +173,10 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                                 }
                         }
                 }
+
+                /*
+                 * Get the neighbors for the seed-pixels
+                 */
                 for (Pixel<T, L> p : seedsL) {
                         if (p.getX() < hor_edges.length) {
                                 p.neighbors[0] = hor_edges[p.getX()][p.getY()];
@@ -189,6 +209,7 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                 //                                e.normal_weight = e.weight;
                 //                        }
                 //                } else {
+
                 for (Edge<T, L> e : edges) {
                         imgRA.setPosition(e.getN1x(), 0);
                         imgRA.setPosition(e.getN1y(), 1);
@@ -196,20 +217,23 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                         imgRA.setPosition(e.getN2x(), 0);
                         imgRA.setPosition(e.getN2y(), 1);
                         int v2 = imgRA.get().getInteger();
+                        //TODO calculation more general
                         e.normal_weight = 255 - Math.abs(v1 - v2);
                 }
+
                 //                }
-                int[] seeds_function = new int[numOfEdges];
+
+                /*
+                 * The edges connected to seeds get the weight set as their normal_weight
+                 */
                 for (Pixel<T, L> p : seedsL) {
                         for (Edge<T, L> e : p.neighbors) {
                                 if (e != null) {
-                                        seeds_function[e.number] = e.normal_weight;
+                                        e.weight = e.normal_weight;
                                 }
                         }
                 }
-                for (Edge<T, L> e : edges) {
-                        e.weight = seeds_function[e.number];
-                }
+
                 ArrayList<Edge<T, L>> seeds_func = (ArrayList<Edge<T, L>>) edges.clone();
                 Edge.weights = false;
                 Collections.sort(seeds_func);
@@ -227,8 +251,8 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                                                 }
                                         }
                                 }
-                                e.Mrk = true;
                         }
+                        e.Mrk = true;
                 }
                 Collections.reverse(seeds_func);
                 for (Edge<T, L> e : seeds_func) {
@@ -246,6 +270,7 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                 // writing results
                 //TODO: Fix the confusion of labels
                 output = seed_path.copy();
+                @SuppressWarnings("deprecation")
                 Cursor<LabelingType<L>> outCursor = output.cursor();
                 for (int j = 0; j < numOfPixels; j++) {
                         double maxi = 0;
@@ -269,25 +294,19 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
         }
 
         private void PowerWatershed_q2() {
-
                 proba = new float[labels.size() - 1][numOfPixels];
                 for (int i = 0; i < labels.size() - 1; i++) {
-                        for (int j = 0; j < numOfPixels; j++) {
-                                proba[i][j] = -1;
-                        }
+                        Arrays.fill(proba[i], -1);
                 }
-                Pixel<T, L>[][] edgesLCP = new Pixel[2][numOfEdges];
                 // proba[i][j] =1 <=> pixel[i] has label j+1
                 for (Pixel<T, L> pix : seedsL) {
+                        int pixPointer = pix.getPointer();
                         for (int j = 0; j < labels.size() - 1; j++) {
-                                if (pix.label == labels.get(j + 1)) {
-                                        proba[j][pix.getPointer()] = 1;
-                                } else {
-                                        proba[j][pix.getPointer()] = 0;
-                                }
+                                proba[j][pixPointer] = pix.label == labels.get(j + 1) ? 1 : 0;
                         }
                 }
                 float[][] local_labels = new float[labels.size() - 1][numOfPixels];
+                Pixel<T, L>[][] edgesLCP = new Pixel[2][numOfEdges];
                 @SuppressWarnings("unchecked")
                 ArrayList<Edge<T, L>> sorted_weights = (ArrayList<Edge<T, L>>) edges.clone();
                 Edge.weights = true;
@@ -310,14 +329,12 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                         e_max.visitedPlateau = true;
                         e_max.visited = true;
                         LCP.add(e_max);
-                        int nb_edges = 0;
                         int wmax = e_max.weight;
-                        Edge<T, L> x;
                         ArrayList<Edge<T, L>> sorted_weights2 = new ArrayList<Edge<T, L>>();
 
                         // 2. putting the edges and vertices of the plateau into arrays
                         while (!LIFO.empty()) {
-                                x = LIFO.pop();
+                                Edge<T, L> x = LIFO.pop();
                                 Pixel<T, L> re1 = x.p1.find();
                                 Pixel<T, L> re2 = x.p2.find();
                                 if (proba[0][re1.getPointer()] < 0 || proba[0][re2.getPointer()] < 0) {
@@ -329,10 +346,9 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                                                 Plateau.add(x.p2);
                                                 x.p2.visited = true;
                                         }
-                                        edgesLCP[0][nb_edges] = x.p1;
-                                        edgesLCP[1][nb_edges] = x.p2;
+                                        edgesLCP[0][sorted_weights2.size()] = x.p1;
+                                        edgesLCP[1][sorted_weights2.size()] = x.p2;
                                         sorted_weights2.add(x);
-                                        nb_edges++;
                                 }
 
                                 for (Edge<T, L> edge : x.neighbors) {
@@ -355,7 +371,7 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                         }
 
                         // 3. If e_max belongs to a plateau
-                        if (nb_edges > 0) {
+                        if (sorted_weights2.size() > 0) {
                                 // 4. Evaluate if there are differents seeds on the plateau
                                 boolean different_seeds = false;
 
@@ -367,18 +383,18 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                                                 if (Math.abs(proba[i][xr] - val) > epsilon && proba[i][xr] >= 0) {
                                                         p++;
                                                         val = proba[i][xr];
-                                                        if (p == 2) {
+                                                        if (p >= 2) {
+                                                                different_seeds = true;
                                                                 break;
                                                         }
                                                 }
                                         }
-                                        if (p >= 2) {
-                                                different_seeds = true;
+                                        if (different_seeds) {
                                                 break;
                                         }
                                 }
 
-                                if (different_seeds == true) {
+                                if (different_seeds) {
                                         // 5. Sort the edges of the plateau according to their
                                         // normal weight
                                         Edge.weights = false;
@@ -439,7 +455,7 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                                 } else {
                                         // if different seeds = false
                                         // 7. Merge nodes for edges of max weight
-                                        for (int j = 0; j < nb_edges; j++) {
+                                        for (int j = 0; j < sorted_weights2.size(); j++) {
                                                 merge_node(edgesLCP[0][j].find(), edgesLCP[1][j].find());
                                         }
                                 }

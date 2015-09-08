@@ -9,7 +9,7 @@ public class Edge<T extends IntegerType<T>, L extends Comparable<L>> implements 
         private final int n2y;
         private final boolean vertical;
         int normal_weight;
-        int weight;
+        int weight = 0;
         Edge<T, L>[] neighbors;
         int number;
         boolean visited;
@@ -20,6 +20,18 @@ public class Edge<T extends IntegerType<T>, L extends Comparable<L>> implements 
         boolean Mrk;
         static boolean weights;
 
+        /**
+         * 
+         * @param n1x
+         *                X-Position of Node 1
+         * @param n1y
+         *                Y-Position of Node 1
+         * @param n2x
+         *                X-Position of Node 2
+         * @param n2y
+         *                Y-Position of Node 2
+         * @param num
+         */
         Edge(int n1x, int n1y, int n2x, int n2y, int num) {
                 this.n1x = n1x;
                 this.n1y = n1y;
@@ -28,6 +40,18 @@ public class Edge<T extends IntegerType<T>, L extends Comparable<L>> implements 
                 vertical = n2x == n1x;
                 number = num;
                 neighbors = new Edge[6];
+        }
+
+        Edge(Pixel<T, L> p1, Pixel<T, L> p2, int num) {
+                this.n1x = p1.getX();
+                this.n1y = p1.getY();
+                this.n2x = p2.getX();
+                this.n2y = p2.getY();
+                vertical = n2x == n1x;
+                number = num;
+                neighbors = new Edge[6];
+                this.p1 = p1;
+                this.p2 = p2;
         }
 
         Edge<T, L> find() {
