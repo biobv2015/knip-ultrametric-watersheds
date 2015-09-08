@@ -13,7 +13,6 @@ public class Edge<T extends IntegerType<T>, L extends Comparable<L>> implements 
         Edge<T, L>[] neighbors;
         int number;
         boolean visited;
-        boolean visitedPlateau;
         Pixel<T, L> p1;
         Pixel<T, L> p2;
         Edge<T, L> Fth = this;
