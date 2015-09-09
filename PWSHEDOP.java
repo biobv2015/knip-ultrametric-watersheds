@@ -235,19 +235,27 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                         }
                 }
 
-                ArrayList<Edge<T, L>> seeds_func = (ArrayList<Edge<T, L>>) edges.clone();
                 Edge.weights = false;
-                Collections.sort(seeds_func);
-                Collections.reverse(seeds_func);
-                for (Edge<T, L> e : seeds_func) {
+                Collections.sort(edges);
+                Collections.reverse(edges);
+                //seeds_func are the edges, heaviest first
+                for (Edge<T, L> e : edges) {
+                        //go through the neighbors
                         for (Edge<T, L> n : e.neighbors) {
+                                //if the neighbor has already been visited (same or higher normal_weight)
                                 if (n != null && n.Mrk) {
+                                        //get the root
                                         Edge<T, L> r = n.find();
+                                        //if the root is not the current edge
                                         if (r != e) {
-                                                if ((r.normal_weight == e.normal_weight) || (e.normal_weight >= r.weight)) {
+                                                //if the edges have the same normal_weight OR this edge has a higher normal_weight than the other root
+                                                if ((e.normal_weight == r.normal_weight) || (e.normal_weight >= r.weight)) {
+                                                        //set this as the root of the other root
                                                         r.Fth = e;
+                                                        //and give it the weight of the old root if it's heavier than this
                                                         e.weight = Math.max(r.weight, e.weight);
                                                 } else {
+                                                        //if they have different normal_weights AND the root is less heavy than the normal_weight
                                                         e.weight = 255;
                                                 }
                                         }
@@ -255,8 +263,9 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                         }
                         e.Mrk = true;
                 }
-                Collections.reverse(seeds_func);
-                for (Edge<T, L> e : seeds_func) {
+                //set weight to normal_weight of roots
+                Collections.reverse(edges);
+                for (Edge<T, L> e : edges) {
                         if (e.Fth == e) {
                                 // p is root
                                 if (e.weight == 255) {
@@ -299,21 +308,19 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                 for (int i = 0; i < labels.size() - 1; i++) {
                         Arrays.fill(proba[i], -1);
                 }
-                // proba[i][j] =1 <=> pixel[i] has label j+1
+                // proba[i][j] =1 <=> pixel[i] has label j
                 for (Pixel<T, L> pix : seedsL) {
                         int pixPointer = pix.getPointer();
                         for (int j = 0; j < labels.size() - 1; j++) {
                                 proba[j][pixPointer] = pix.label == labels.get(j) ? 1 : 0;
                         }
                 }
-                @SuppressWarnings("unchecked")
-                ArrayList<Edge<T, L>> sorted_weights = (ArrayList<Edge<T, L>>) edges.clone();
                 Edge.weights = true;
-                Collections.sort(sorted_weights);
-                Collections.reverse(sorted_weights);
+                Collections.sort(edges);
+                Collections.reverse(edges);
 
                 /* beginning of main loop */
-                for (Edge<T, L> e_max : sorted_weights) {
+                for (Edge<T, L> e_max : edges) {
                         if (e_max.visited) {
                                 continue;
                         }
@@ -322,13 +329,10 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                         // e_max
                         Stack<Edge<T, L>> LIFO = new Stack<>();
                         HashSet<Edge<T, L>> visited = new HashSet<>();
-                        ArrayList<Pixel<T, L>> Plateau = new ArrayList<>(); // vertices of a
-                                                                            // plateau.
                         LIFO.add(e_max);
                         e_max.visited = true;
                         visited.add(e_max);
-                        int wmax = e_max.weight;
-                        ArrayList<Edge<T, L>> sorted_weights2 = new ArrayList<Edge<T, L>>();
+                        ArrayList<Edge<T, L>> sorted_weights = new ArrayList<Edge<T, L>>();
 
                         // 2. putting the edges and vertices of the plateau into arrays
                         while (!LIFO.empty()) {
@@ -336,18 +340,12 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                                 Pixel<T, L> re1 = x.p1.find();
                                 Pixel<T, L> re2 = x.p2.find();
                                 if (proba[0][re1.getPointer()] < 0 || proba[0][re2.getPointer()] < 0) {
-                                        if (!Plateau.contains(x.p1)) {
-                                                Plateau.add(x.p1);
-                                        }
-                                        if (!Plateau.contains(x.p2)) {
-                                                Plateau.add(x.p2);
-                                        }
-                                        sorted_weights2.add(x);
+                                        sorted_weights.add(x);
                                 }
 
                                 for (Edge<T, L> edge : x.neighbors) {
                                         if (edge != null) {
-                                                if ((!visited.contains(edge)) && (edge.weight == wmax)) {
+                                                if ((!visited.contains(edge)) && (edge.weight == e_max.weight)) {
                                                         LIFO.add(edge);
                                                         visited.add(edge);
                                                         edge.visited = true;
@@ -357,22 +355,27 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                         }
 
                         // 3. If e_max belongs to a plateau
-                        if (sorted_weights2.size() > 0) {
+                        if (sorted_weights.size() > 0) {
                                 // 4. Evaluate if there are differents seeds on the plateau
                                 boolean different_seeds = false;
 
                                 for (int i = 0; i < labels.size() - 1; i++) {
                                         int p = 0;
                                         double val = -0.5;
-                                        for (Pixel<T, L> j : Plateau) {
-                                                int xr = j.find().getPointer();
+                                        for (Edge<T, L> x : sorted_weights) {
+                                                int xr = x.p1.find().getPointer();
                                                 if (Math.abs(proba[i][xr] - val) > epsilon && proba[i][xr] >= 0) {
                                                         p++;
                                                         val = proba[i][xr];
-                                                        if (p >= 2) {
-                                                                different_seeds = true;
-                                                                break;
-                                                        }
+                                                }
+                                                xr = x.p2.find().getPointer();
+                                                if (Math.abs(proba[i][xr] - val) > epsilon && proba[i][xr] >= 0) {
+                                                        p++;
+                                                        val = proba[i][xr];
+                                                }
+                                                if (p >= 2) {
+                                                        different_seeds = true;
+                                                        break;
                                                 }
                                         }
                                         if (different_seeds) {
@@ -384,47 +387,34 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                                         // 5. Sort the edges of the plateau according to their
                                         // normal weight
                                         Edge.weights = false;
-                                        Collections.sort(sorted_weights2);
-                                        Collections.reverse(sorted_weights2);
+                                        Collections.sort(sorted_weights);
+                                        Collections.reverse(sorted_weights);
 
                                         // Merge nodes for edges of real max weight
-                                        Plateau.clear();
+                                        ArrayList<Pixel<T, L>> pixelsLCP = new ArrayList<>(); // vertices of a plateau.
                                         ArrayList<PseudoEdge<T, L>> edgesLCP = new ArrayList<>();
-                                        for (Edge<T, L> Ne_max : sorted_weights2) {
-                                                Pixel<T, L> re1 = Ne_max.p1.find();
-                                                Pixel<T, L> re2 = Ne_max.p2.find();
-                                                if (Ne_max.normal_weight != wmax) {
+                                        for (Edge<T, L> e : sorted_weights) {
+                                                Pixel<T, L> re1 = e.p1.find();
+                                                Pixel<T, L> re2 = e.p2.find();
+                                                if (e.normal_weight != e_max.weight) {
                                                         merge_node(re1, re2);
-                                                } else {
-                                                        if ((re1 != re2) && ((proba[0][re1.getPointer()] < 0 || proba[0][re2.getPointer()] < 0))) {
-                                                                if (!Plateau.contains(re1)) {
-                                                                        Plateau.add(re1);
-                                                                }
-                                                                if (!Plateau.contains(re2)) {
-                                                                        Plateau.add(re2);
-                                                                }
-                                                                edgesLCP.add(new PseudoEdge<>(re1, re2));
+                                                } else if ((re1 != re2) && (proba[0][re1.getPointer()] < 0 || proba[0][re2.getPointer()] < 0)) {
+                                                        if (!pixelsLCP.contains(re1)) {
+                                                                pixelsLCP.add(re1);
                                                         }
-                                                }
-                                        }
+                                                        if (!pixelsLCP.contains(re2)) {
+                                                                pixelsLCP.add(re2);
+                                                        }
+                                                        edgesLCP.add(new PseudoEdge<>(re1, re2));
 
-                                        ArrayList<ArrayList<Float>> local_labels = new ArrayList<>();
-                                        for (int i = 0; i < labels.size() - 1; i++) {
-                                                ArrayList<Float> curLocLabel = new ArrayList<>();
-                                                for (Pixel<T, L> xr : Plateau) {
-                                                        if (proba[i][xr.getPointer()] >= 0) {
-                                                                gPixels[curLocLabel.size()].local_seed = xr;
-                                                                curLocLabel.add(new Float(proba[i][xr.getPointer()]));
-                                                        }
                                                 }
-                                                local_labels.add(curLocLabel);
                                         }
 
                                         // 6. Execute Random Walker on plateaus
-                                        if (Plateau.size() < SIZE_MAX_PLATEAU) {
-                                                RandomWalker(edgesLCP, Plateau, local_labels);
+                                        if (pixelsLCP.size() < SIZE_MAX_PLATEAU) {
+                                                RandomWalker(edgesLCP, pixelsLCP);
                                         } else {
-                                                System.out.printf("Plateau too big (%d vertices,%d edges), RW is not performed\n", Plateau.size(),
+                                                System.out.printf("Plateau too big (%d vertices,%d edges), RW is not performed\n", pixelsLCP.size(),
                                                                 edgesLCP.size());
                                                 for (PseudoEdge<T, L> pseudo : edgesLCP) {
                                                         merge_node(pseudo.p1.find(), pseudo.p2.find());
@@ -433,7 +423,7 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                                 } else {
                                         // if different seeds = false
                                         // 7. Merge nodes for edges of max weight
-                                        for (Edge<T, L> edge : sorted_weights2) {
+                                        for (Edge<T, L> edge : sorted_weights) {
                                                 merge_node(edge.p1.find(), edge.p2.find());
                                         }
                                 }
@@ -443,89 +433,96 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                 // building the final proba map (find the root vertex of each tree)
                 for (Pixel<T, L> j : gPixels) {
                         Pixel<T, L> i = j.find();
-                        for (int k = 0; k < labels.size() - 1; k++) {
-                                proba[k][j.getPointer()] = proba[k][i.getPointer()];
+                        if (i != j) {
+                                for (int k = 0; k < labels.size() - 1; k++) {
+                                        proba[k][j.getPointer()] = proba[k][i.getPointer()];
+                                }
                         }
                 }
         }
 
         /**
          * 
-         * @param index_edges
+         * @param edgesLCP
          *                edges of the plateau
-         * @param index
+         * @param pixelsLCP
          *                nodes of the plateau
-         * @param boundary_values
          */
-        private void RandomWalker(ArrayList<PseudoEdge<T, L>> index_edges, ArrayList<Pixel<T, L>> index,
-                        ArrayList<ArrayList<Float>> boundary_values) {
-                ArrayList<PseudoEdge<T, L>> edgeL = new ArrayList<>();
-                for (PseudoEdge<T, L> pseudo : index_edges) {
-                        edgeL.add(new PseudoEdge<T, L>(pseudo.p1, pseudo.p2));
-                }
-                boolean[] seeded_vertex = new boolean[index.size()];
-                int[] indic_sparse = new int[index.size()];
-                int[] nb_same_edges = new int[index_edges.size()];
+        private void RandomWalker(ArrayList<PseudoEdge<T, L>> edgesLCP, ArrayList<Pixel<T, L>> pixelsLCP) {
+
+                boolean[] seeded_vertex = new boolean[pixelsLCP.size()];
+                int[] indic_sparse = new int[pixelsLCP.size()];
+                int[] nb_same_edges = new int[edgesLCP.size()];
 
                 // Indexing the edges, and the seeds
-                for (int i = 0; i < index.size(); i++) {
-                        index.get(i).indic_VP = gPixels[i];
+                for (int i = 0; i < pixelsLCP.size(); i++) {
+                        pixelsLCP.get(i).indic_VP = gPixels[i];
                 }
 
-                for (PseudoEdge<T, L> pseudo : edgeL) {
+                for (PseudoEdge<T, L> pseudo : edgesLCP) {
                         Pixel<T, L> v1 = pseudo.p1.indic_VP;
                         Pixel<T, L> v2 = pseudo.p2.indic_VP;
                         if (v1.getPointer() < v2.getPointer()) {
-                                pseudo.p1 = pseudo.p1.indic_VP;
-                                pseudo.p2 = pseudo.p2.indic_VP;
-                                indic_sparse[pseudo.p1.getPointer()]++;
-                                indic_sparse[pseudo.p2.getPointer()]++;
+                                pseudo.p1 = v1;
+                                pseudo.p2 = v2;
                         } else {
                                 pseudo.p2 = v1;
                                 pseudo.p1 = v2;
-                                indic_sparse[pseudo.p1.getPointer()]++;
-                                indic_sparse[pseudo.p2.getPointer()]++;
                         }
+                        indic_sparse[v1.getPointer()]++;
+                        indic_sparse[v2.getPointer()]++;
                 }
-                Collections.sort(edgeL);
-                for (int m = 0; m < index_edges.size(); m++) {
+                Collections.sort(edgesLCP);
+                for (int m = 0; m < edgesLCP.size(); m++) {
                         int n = 0;
-                        while ((m + n < index_edges.size() - 1) && edgeL.get(m + n).compareTo(edgeL.get(m + n + 1)) == 0) {
+                        while ((m + n < edgesLCP.size() - 1) && edgesLCP.get(m + n).compareTo(edgesLCP.get(m + n + 1)) == 0) {
                                 n++;
                         }
                         nb_same_edges[m] = n;
                 }
 
-                int numb_boundary = boundary_values.get(boundary_values.size() - 1).size();
+                ArrayList<ArrayList<Float>> local_labels = new ArrayList<>();
+                for (int i = 0; i < labels.size() - 1; i++) {
+                        ArrayList<Float> curLocLabel = new ArrayList<>();
+                        for (Pixel<T, L> p : pixelsLCP) {
+                                if (proba[i][p.getPointer()] >= 0) {
+                                        gPixels[curLocLabel.size()].local_seed = p;
+                                        curLocLabel.add(new Float(proba[i][p.getPointer()]));
+                                }
+                        }
+                        local_labels.add(curLocLabel);
+                }
 
-                for (int i = 0; i < numb_boundary; i++) {
+                int numOfLocalLabels = local_labels.get(local_labels.size() - 1).size();
+
+                for (int i = 0; i < numOfLocalLabels; i++) {
                         gPixels[i].local_seed = gPixels[i].local_seed.indic_VP;
                         seeded_vertex[gPixels[i].local_seed.getPointer()] = true;
                 }
 
                 // The system to solve is A x = -B X2
                 // building matrix A : laplacian for unseeded nodes
-                Matrix A2_m = new Matrix(index.size() - numb_boundary, index.size() - numb_boundary);
-                fill_A(A2_m, index.size(), numb_boundary, edgeL, seeded_vertex, indic_sparse, nb_same_edges);
+                Matrix A2_m = new Matrix(pixelsLCP.size() - numOfLocalLabels, pixelsLCP.size() - numOfLocalLabels);
+                fill_A(A2_m, pixelsLCP.size(), numOfLocalLabels, edgesLCP, seeded_vertex, indic_sparse, nb_same_edges);
 
                 // building boundary matrix B
-                Matrix B2_m = new Matrix(index.size() - numb_boundary, numb_boundary);
-                fill_B(B2_m, edgeL, seeded_vertex, indic_sparse, nb_same_edges);
+                Matrix B2_m = new Matrix(pixelsLCP.size() - numOfLocalLabels, numOfLocalLabels);
+                fill_B(B2_m, edgesLCP, seeded_vertex, indic_sparse, nb_same_edges);
                 LUDecomposition AXB = new LUDecomposition(A2_m);
 
                 // building the right hand side of the system
                 for (int l = 0; l < labels.size() - 1; l++) {
-                        Matrix X = new Matrix(numb_boundary, 1);
-                        double[] b = new double[index.size() - numb_boundary];
+                        Matrix X = new Matrix(numOfLocalLabels, 1);
+                        double[] b = new double[pixelsLCP.size() - numOfLocalLabels];
                         // building vector X
-                        for (int i = 0; i < numb_boundary; i++) {
-                                X.set(i, 0, boundary_values.get(l).get(i).floatValue());
+                        for (int i = 0; i < numOfLocalLabels; i++) {
+                                X.set(i, 0, local_labels.get(l).get(i).floatValue());
                         }
 
                         Matrix b_tmp = B2_m.times(X);
-                        for (int i = 0; i < index.size() - numb_boundary; i++) {
-                                b[i] = 0;
-                        }
+
+                        Arrays.fill(b, 0);
+
                         for (int i = 0; i < b_tmp.getRowDimension(); i++) {
                                 for (int j = 0; j < b_tmp.getColumnDimension(); j++) {
                                         if (b_tmp.get(i, j) != 0) {
@@ -538,23 +535,23 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                         b = AXB.solve(new Matrix(b, b.length)).getColumnPackedCopy();
 
                         int cpt = 0;
-                        for (int k = 0; k < index.size(); k++) {
+                        for (int k = 0; k < pixelsLCP.size(); k++) {
                                 if (!seeded_vertex[k]) {
-                                        proba[l][index.get(k).getPointer()] = (float) b[cpt];
+                                        proba[l][pixelsLCP.get(k).getPointer()] = (float) b[cpt];
                                         cpt++;
                                 }
                         }
                         // Enforce boundaries exactly
-                        for (int k = 0; k < numb_boundary; k++) {
-                                proba[l][index.get(gPixels[k].local_seed.getPointer()).getPointer()] = boundary_values.get(l).get(k).floatValue();
+                        for (int k = 0; k < numOfLocalLabels; k++) {
+                                proba[l][pixelsLCP.get(gPixels[k].local_seed.getPointer()).getPointer()] = local_labels.get(l).get(k).floatValue();
                         }
                 }
         }
 
-        private void fill_B(Matrix B, ArrayList<PseudoEdge<T, L>> index_edges, boolean[] seeded_vertex, int[] indic_sparse, int[] nb_same_edges) {
-                for (int k = 0; k < index_edges.size(); k++) {
-                        int p1 = index_edges.get(k).p1.getPointer();
-                        int p2 = index_edges.get(k).p2.getPointer();
+        private void fill_B(Matrix B, ArrayList<PseudoEdge<T, L>> edgesLCP, boolean[] seeded_vertex, int[] indic_sparse, int[] nb_same_edges) {
+                for (int k = 0; k < edgesLCP.size(); k++) {
+                        int p1 = edgesLCP.get(k).p1.getPointer();
+                        int p2 = edgesLCP.get(k).p2.getPointer();
                         if (seeded_vertex[p1] == true) {
                                 B.set(indic_sparse[p2], indic_sparse[p1], -nb_same_edges[k] - 1);
                                 k += nb_same_edges[k];
@@ -566,7 +563,7 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
 
         }
 
-        private void fill_A(Matrix A, int N, int numb_boundary, ArrayList<PseudoEdge<T, L>> index_edges, boolean[] seeded_vertex, int[] indic_sparse,
+        private void fill_A(Matrix A, int N, int numOfLocalLabels, ArrayList<PseudoEdge<T, L>> edgesLCP, boolean[] seeded_vertex, int[] indic_sparse,
                         int[] nb_same_edges) {
                 int rnz = 0;
                 // fill the diagonal
@@ -587,9 +584,9 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                                 rnzu++;
                         }
                 }
-                for (int k = 0; k < index_edges.size(); k++) {
-                        int p1 = index_edges.get(k).p1.getPointer();
-                        int p2 = index_edges.get(k).p2.getPointer();
+                for (int k = 0; k < edgesLCP.size(); k++) {
+                        int p1 = edgesLCP.get(k).p1.getPointer();
+                        int p2 = edgesLCP.get(k).p2.getPointer();
                         if ((seeded_vertex[p1] == false) && (seeded_vertex[p2] == false)) {
                                 A.set(indic_sparse[p1], indic_sparse[p2], -nb_same_edges[k] - 1);
                                 A.set(indic_sparse[p2], indic_sparse[p1], -nb_same_edges[k] - 1);
