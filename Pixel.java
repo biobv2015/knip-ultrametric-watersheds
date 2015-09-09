@@ -10,7 +10,7 @@ public class Pixel<T extends IntegerType<T>, L extends Comparable<L>> {
         L label;
         int Rnk;
         Pixel<T, L> Fth = this;
-        Pixel<T, L> indic_VP;
+        int indic_VP;
         Pixel<T, L> local_seed;
 
         Pixel(int x, int y, L label, int width) {

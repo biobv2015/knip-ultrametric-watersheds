@@ -30,18 +30,13 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
         public static int SIZE_MAX_PLATEAU = 1000000;
         public static double epsilon = 0.000001;
 
-        int[][] r_pixels;
-        int[][] g_pixels;
-        int[][] b_pixels;
+        //        int[][] r_pixels;
+        //        int[][] g_pixels;
+        //        int[][] b_pixels;
         ArrayList<Edge<T, L>> edges;
-        int numOfEdges;
-        int numOfPixels;
-        ArrayList<Pixel<T, L>> seedsL;
         int width;
         int height;
         ArrayList<L> labels;
-        Pixel<T, L>[] gPixels;
-        Pixel<T, L>[][] gPixelsT;
         float[][] proba;
 
         @SuppressWarnings("deprecation")
@@ -71,10 +66,6 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                 width = (int) image_path.dimension(0);
                 // save the height for easy access
                 height = (int) image_path.dimension(1);
-                // save the number of edges for easy access
-                numOfEdges = width * (height - 1) + (width - 1) * height;
-                // save the number of pixels for easy access
-                numOfPixels = height * width;
                 // If the image is colored the pixels are split into their R, G and B
                 // values.
                 //                if (color) {
@@ -89,7 +80,8 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                 //                                }
                 //                        }
                 //                }
-                seedsL = new ArrayList<>();
+
+                ArrayList<Pixel<T, L>> seedsL = new ArrayList<>();
                 labels = new ArrayList<L>();
                 /*
                  * Get the seeds from the input labeling. "labels" is the List of the labels, while "seedsL" stores the seeds.
@@ -109,8 +101,8 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                 /*
                  * Create a "Pixel" for each pixel in the input, all are labeled as label_0
                  */
-                gPixels = new Pixel[numOfPixels];
-                gPixelsT = new Pixel[width][height];
+                Pixel<T, L>[] gPixels = new Pixel[width * height];
+                Pixel<T, L>[][] gPixelsT = new Pixel[width][height];
                 for (int i = 0; i < width; i++) {
                         for (int j = 0; j < height; j++) {
                                 gPixelsT[i][j] = new Pixel<T, L>(i, j, labels.get(0), width);
@@ -140,37 +132,36 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                 /*
                  * get the neighbor-information
                  */
-                for (int i = 0; i < numOfEdges; i++) {
-                        Edge<T, L> e = edges.get(i);
+                for (Edge<T, L> e : edges) {
                         if (!e.isVertical()) {
-                                if (e.getN1y() > 0) {
-                                        e.neighbors[0] = ver_edges[e.getN2x()][e.getN1y() - 1];
-                                        e.neighbors[1] = ver_edges[e.getN1x()][e.getN1y() - 1];
+                                if (e.p1.getY() > 0) {
+                                        e.neighbors[0] = ver_edges[e.p2.getX()][e.p1.getY() - 1];
+                                        e.neighbors[1] = ver_edges[e.p1.getX()][e.p1.getY() - 1];
                                 }
-                                if (e.getN1x() > 0) {
-                                        e.neighbors[2] = hor_edges[e.getN1x() - 1][e.getN1y()];
+                                if (e.p1.getX() > 0) {
+                                        e.neighbors[2] = hor_edges[e.p1.getX() - 1][e.p1.getY()];
                                 }
-                                if (e.getN1y() < ver_edges[0].length - 1) {
-                                        e.neighbors[3] = ver_edges[e.getN1x()][e.getN1y()];
-                                        e.neighbors[4] = ver_edges[e.getN2x()][e.getN1y()];
+                                if (e.p1.getY() < ver_edges[0].length - 1) {
+                                        e.neighbors[3] = ver_edges[e.p1.getX()][e.p1.getY()];
+                                        e.neighbors[4] = ver_edges[e.p2.getX()][e.p1.getY()];
                                 }
-                                if (e.getN1x() < hor_edges.length - 1) {
-                                        e.neighbors[5] = hor_edges[e.getN2x()][e.getN1y()];
+                                if (e.p1.getX() < hor_edges.length - 1) {
+                                        e.neighbors[5] = hor_edges[e.p2.getX()][e.p1.getY()];
                                 }
                         } else { // e.isVertical()
-                                if (e.getN1y() > 0) {
-                                        e.neighbors[0] = ver_edges[e.getN1x()][e.getN1y() - 1];
+                                if (e.p1.getY() > 0) {
+                                        e.neighbors[0] = ver_edges[e.p1.getX()][e.p1.getY() - 1];
                                 }
-                                if (e.getN1x() > 0) {
-                                        e.neighbors[1] = hor_edges[e.getN1x() - 1][e.getN1y()];
-                                        e.neighbors[2] = hor_edges[e.getN2x() - 1][e.getN2y()];
+                                if (e.p1.getX() > 0) {
+                                        e.neighbors[1] = hor_edges[e.p1.getX() - 1][e.p1.getY()];
+                                        e.neighbors[2] = hor_edges[e.p2.getX() - 1][e.p2.getY()];
                                 }
-                                if (e.getN2y() < ver_edges[0].length - 1) {
-                                        e.neighbors[3] = ver_edges[e.getN2x()][e.getN2y()];
+                                if (e.p2.getY() < ver_edges[0].length - 1) {
+                                        e.neighbors[3] = ver_edges[e.p2.getX()][e.p2.getY()];
                                 }
-                                if (e.getN1x() < hor_edges.length - 1) {
-                                        e.neighbors[4] = hor_edges[e.getN2x()][e.getN2y()];
-                                        e.neighbors[5] = hor_edges[e.getN1x()][e.getN1y()];
+                                if (e.p1.getX() < hor_edges.length - 1) {
+                                        e.neighbors[4] = hor_edges[e.p2.getX()][e.p2.getY()];
+                                        e.neighbors[5] = hor_edges[e.p1.getX()][e.p1.getY()];
                                 }
                         }
                 }
@@ -212,11 +203,11 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                 //                } else {
 
                 for (Edge<T, L> e : edges) {
-                        imgRA.setPosition(e.getN1x(), 0);
-                        imgRA.setPosition(e.getN1y(), 1);
+                        imgRA.setPosition(e.p1.getX(), 0);
+                        imgRA.setPosition(e.p1.getY(), 1);
                         int v1 = imgRA.get().getInteger();
-                        imgRA.setPosition(e.getN2x(), 0);
-                        imgRA.setPosition(e.getN2y(), 1);
+                        imgRA.setPosition(e.p2.getX(), 0);
+                        imgRA.setPosition(e.p2.getY(), 1);
                         int v2 = imgRA.get().getInteger();
                         //TODO calculation more general
                         e.normal_weight = 255 - Math.abs(v1 - v2);
@@ -275,14 +266,37 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                                 e.weight = e.Fth.weight;
                         }
                 }
+
+                proba = new float[labels.size() - 1][width * height];
+                for (int i = 0; i < labels.size() - 1; i++) {
+                        Arrays.fill(proba[i], -1);
+                }
+                // proba[i][j] =1 <=> pixel[i] has label j
+                for (Pixel<T, L> pix : seedsL) {
+                        int pixPointer = pix.getPointer();
+                        for (int j = 0; j < labels.size() - 1; j++) {
+                                proba[j][pixPointer] = pix.label == labels.get(j) ? 1 : 0;
+                        }
+                }
+
                 PowerWatershed_q2();
+
+                // building the final proba map (find the root vertex of each tree)
+                for (Pixel<T, L> j : gPixels) {
+                        Pixel<T, L> i = j.find();
+                        if (i != j) {
+                                for (int k = 0; k < labels.size() - 1; k++) {
+                                        proba[k][j.getPointer()] = proba[k][i.getPointer()];
+                                }
+                        }
+                }
 
                 // writing results
                 //TODO: Fix the confusion of labels
                 output = seed_path.copy();
                 @SuppressWarnings("deprecation")
                 Cursor<LabelingType<L>> outCursor = output.cursor();
-                for (int j = 0; j < numOfPixels; j++) {
+                for (int j = 0; j < width * height; j++) {
                         double maxi = 0;
                         int argmax = 0;
                         double val = 1;
@@ -304,17 +318,6 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
         }
 
         private void PowerWatershed_q2() {
-                proba = new float[labels.size() - 1][numOfPixels];
-                for (int i = 0; i < labels.size() - 1; i++) {
-                        Arrays.fill(proba[i], -1);
-                }
-                // proba[i][j] =1 <=> pixel[i] has label j
-                for (Pixel<T, L> pix : seedsL) {
-                        int pixPointer = pix.getPointer();
-                        for (int j = 0; j < labels.size() - 1; j++) {
-                                proba[j][pixPointer] = pix.label == labels.get(j) ? 1 : 0;
-                        }
-                }
                 Edge.weights = true;
                 Collections.sort(edges);
                 Collections.reverse(edges);
@@ -429,16 +432,6 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                                 }
                         }
                 } // end main loop
-
-                // building the final proba map (find the root vertex of each tree)
-                for (Pixel<T, L> j : gPixels) {
-                        Pixel<T, L> i = j.find();
-                        if (i != j) {
-                                for (int k = 0; k < labels.size() - 1; k++) {
-                                        proba[k][j.getPointer()] = proba[k][i.getPointer()];
-                                }
-                        }
-                }
         }
 
         /**
@@ -456,21 +449,17 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
 
                 // Indexing the edges, and the seeds
                 for (int i = 0; i < pixelsLCP.size(); i++) {
-                        pixelsLCP.get(i).indic_VP = gPixels[i];
+                        pixelsLCP.get(i).indic_VP = i;
                 }
 
                 for (PseudoEdge<T, L> pseudo : edgesLCP) {
-                        Pixel<T, L> v1 = pseudo.p1.indic_VP;
-                        Pixel<T, L> v2 = pseudo.p2.indic_VP;
-                        if (v1.getPointer() < v2.getPointer()) {
-                                pseudo.p1 = v1;
-                                pseudo.p2 = v2;
-                        } else {
-                                pseudo.p2 = v1;
-                                pseudo.p1 = v2;
+                        if (pseudo.p1.indic_VP > pseudo.p2.indic_VP) {
+                                Pixel<T, L> tmp = pseudo.p1;
+                                pseudo.p1 = pseudo.p2;
+                                pseudo.p2 = tmp;
                         }
-                        indic_sparse[v1.getPointer()]++;
-                        indic_sparse[v2.getPointer()]++;
+                        indic_sparse[pseudo.p1.indic_VP]++;
+                        indic_sparse[pseudo.p2.indic_VP]++;
                 }
                 Collections.sort(edgesLCP);
                 for (int m = 0; m < edgesLCP.size(); m++) {
@@ -486,18 +475,16 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                         ArrayList<Float> curLocLabel = new ArrayList<>();
                         for (Pixel<T, L> p : pixelsLCP) {
                                 if (proba[i][p.getPointer()] >= 0) {
-                                        gPixels[curLocLabel.size()].local_seed = p;
+                                        pixelsLCP.get(curLocLabel.size()).local_seed = p;
                                         curLocLabel.add(new Float(proba[i][p.getPointer()]));
                                 }
                         }
                         local_labels.add(curLocLabel);
                 }
-
                 int numOfLocalLabels = local_labels.get(local_labels.size() - 1).size();
 
                 for (int i = 0; i < numOfLocalLabels; i++) {
-                        gPixels[i].local_seed = gPixels[i].local_seed.indic_VP;
-                        seeded_vertex[gPixels[i].local_seed.getPointer()] = true;
+                        seeded_vertex[pixelsLCP.get(i).local_seed.indic_VP] = true;
                 }
 
                 // The system to solve is A x = -B X2
@@ -543,15 +530,15 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                         }
                         // Enforce boundaries exactly
                         for (int k = 0; k < numOfLocalLabels; k++) {
-                                proba[l][pixelsLCP.get(gPixels[k].local_seed.getPointer()).getPointer()] = local_labels.get(l).get(k).floatValue();
+                                proba[l][pixelsLCP.get(pixelsLCP.get(k).local_seed.indic_VP).getPointer()] = local_labels.get(l).get(k).floatValue();
                         }
                 }
         }
 
         private void fill_B(Matrix B, ArrayList<PseudoEdge<T, L>> edgesLCP, boolean[] seeded_vertex, int[] indic_sparse, int[] nb_same_edges) {
                 for (int k = 0; k < edgesLCP.size(); k++) {
-                        int p1 = edgesLCP.get(k).p1.getPointer();
-                        int p2 = edgesLCP.get(k).p2.getPointer();
+                        int p1 = edgesLCP.get(k).p1.indic_VP;
+                        int p2 = edgesLCP.get(k).p2.indic_VP;
                         if (seeded_vertex[p1] == true) {
                                 B.set(indic_sparse[p2], indic_sparse[p1], -nb_same_edges[k] - 1);
                                 k += nb_same_edges[k];
@@ -565,10 +552,10 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
 
         private void fill_A(Matrix A, int N, int numOfLocalLabels, ArrayList<PseudoEdge<T, L>> edgesLCP, boolean[] seeded_vertex, int[] indic_sparse,
                         int[] nb_same_edges) {
-                int rnz = 0;
                 // fill the diagonal
+                int rnz = 0;
                 for (int k = 0; k < N; k++) {
-                        if (seeded_vertex[k] == false) {
+                        if (!seeded_vertex[k]) {
                                 A.set(rnz, rnz, indic_sparse[k]);
                                 rnz++;
                         }
@@ -585,13 +572,13 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                         }
                 }
                 for (int k = 0; k < edgesLCP.size(); k++) {
-                        int p1 = edgesLCP.get(k).p1.getPointer();
-                        int p2 = edgesLCP.get(k).p2.getPointer();
-                        if ((seeded_vertex[p1] == false) && (seeded_vertex[p2] == false)) {
+                        int p1 = edgesLCP.get(k).p1.indic_VP;
+                        int p2 = edgesLCP.get(k).p2.indic_VP;
+                        if (!seeded_vertex[p1] && !seeded_vertex[p2]) {
                                 A.set(indic_sparse[p1], indic_sparse[p2], -nb_same_edges[k] - 1);
                                 A.set(indic_sparse[p2], indic_sparse[p1], -nb_same_edges[k] - 1);
-                                k += nb_same_edges[k];
                         }
+                        k += nb_same_edges[k];
                 }
         }
 
