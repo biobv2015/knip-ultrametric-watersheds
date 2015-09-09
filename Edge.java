@@ -4,23 +4,23 @@ import net.imglib2.type.numeric.IntegerType;
 
 public class Edge<T extends IntegerType<T>, L extends Comparable<L>> implements Comparable<Edge<T, L>> {
         private final boolean vertical;
-        int normal_weight;
+        final int normal_weight;
         int weight = 0;
         Edge<T, L>[] neighbors;
-        int number;
         boolean visited;
-        Pixel<T, L> p1;
-        Pixel<T, L> p2;
+        final Pixel<T, L> p1;
+        final Pixel<T, L> p2;
         Edge<T, L> Fth = this;
         boolean Mrk;
+
         static boolean weights;
 
-        Edge(Pixel<T, L> p1, Pixel<T, L> p2, int num) {
+        Edge(Pixel<T, L> p1, Pixel<T, L> p2, int normal_weight) {
                 vertical = p2.getX() == p1.getX();
-                number = num;
                 neighbors = new Edge[6];
                 this.p1 = p1;
                 this.p2 = p2;
+                this.normal_weight = normal_weight;
         }
 
         Edge<T, L> find() {
