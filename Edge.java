@@ -3,7 +3,6 @@ package org.knime.knip.example;
 import net.imglib2.type.numeric.IntegerType;
 
 public class Edge<T extends IntegerType<T>, L extends Comparable<L>> implements Comparable<Edge<T, L>> {
-        private final boolean vertical;
         final int normal_weight;
         int weight = 0;
         Edge<T, L>[] neighbors;
@@ -16,7 +15,6 @@ public class Edge<T extends IntegerType<T>, L extends Comparable<L>> implements 
         static boolean weights;
 
         Edge(Pixel<T, L> p1, Pixel<T, L> p2, int normal_weight) {
-                vertical = p2.getX() == p1.getX();
                 neighbors = new Edge[6];
                 this.p1 = p1;
                 this.p2 = p2;
@@ -51,6 +49,6 @@ public class Edge<T extends IntegerType<T>, L extends Comparable<L>> implements 
         }
 
         boolean isVertical() {
-                return vertical;
+                return p2.getX() == p1.getX();
         }
 }
