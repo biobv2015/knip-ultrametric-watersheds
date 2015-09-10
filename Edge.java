@@ -15,7 +15,7 @@ public class Edge<T extends IntegerType<T>, L extends Comparable<L>> implements 
         static boolean weights;
 
         Edge(Pixel<T, L> p1, Pixel<T, L> p2, int normal_weight) {
-                neighbors = new Edge[6];
+                neighbors = new Edge[10];
                 this.p1 = p1;
                 this.p2 = p2;
                 this.normal_weight = normal_weight;
@@ -49,6 +49,10 @@ public class Edge<T extends IntegerType<T>, L extends Comparable<L>> implements 
         }
 
         boolean isVertical() {
-                return p2.getX() == p1.getX();
+                return p2.getX() == p1.getX() && p1.getZ() == p2.getZ();
+        }
+
+        boolean isDepth() {
+                return p2.getZ() != p1.getZ();
         }
 }

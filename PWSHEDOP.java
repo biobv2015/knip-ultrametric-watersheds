@@ -31,6 +31,7 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
 
         int width;
         int height;
+        int depth;
         float[][] proba;
 
         @SuppressWarnings("deprecation")
@@ -55,6 +56,9 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                 Pixel.width = width;
                 // save the height for easy access
                 height = (int) image_path.dimension(1);
+                Pixel.height = height;
+                // save the depth for easy access
+                depth = (int) image_path.dimension(2);
 
                 @SuppressWarnings("deprecation")
                 final Cursor<LabelingType<L>> seedCursor = seed_path.cursor();
@@ -66,40 +70,53 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                  * Get the seeds from the input labeling. "labels" is the List of the labels, while "seedsL" stores the seeds.
                  * Create the edges.
                  */
-                Pixel<T, L>[][] gPixelsT = new Pixel[width][height];
+                Pixel<T, L>[][][] gPixelsT = new Pixel[width][height][depth];
                 ArrayList<Edge<T, L>> edges = new ArrayList<>();
-                Edge<T, L>[][] hor_edges = new Edge[width - 1][height];
-                Edge<T, L>[][] ver_edges = new Edge[width][height - 1];
+                Edge<T, L>[][][] hor_edges = new Edge[width - 1][height][depth];
+                Edge<T, L>[][][] ver_edges = new Edge[width][height - 1][depth];
+                Edge<T, L>[][][] dep_edges = new Edge[width][height][depth - 1];
                 final Cursor<T> imageCursor = image_path.cursor();
-                int[] lastLine = new int[width];
-
-                for (int j = 0; j < height; j++) {
-                        for (int i = 0; i < width; i++) {
-                                seedCursor.fwd();
-                                List<L> labeling = seedCursor.get().getLabeling();
-                                if (labeling.size() != 0) {
-                                        L label = labeling.get(0);
-                                        gPixelsT[i][j] = new Pixel<T, L>(i, j, label);
-                                        seedsL.add(gPixelsT[i][j]);
-                                        if (!labels.contains(label)) {
-                                                labels.add(label);
+                int[][] lastSlice = new int[width][height];
+                for (int k = 0; k < depth; k++) {
+                        for (int j = 0; j < height; j++) {
+                                for (int i = 0; i < width; i++) {
+                                        if (!seedCursor.hasNext()) {
+                                                System.out.println("fuck");
                                         }
-                                } else {
-                                        gPixelsT[i][j] = new Pixel<T, L>(i, j, null);
-                                }
+                                        seedCursor.fwd();
+                                        List<L> labeling = seedCursor.get().getLabeling();
+                                        if (labeling.size() != 0) {
+                                                L label = labeling.get(0);
+                                                gPixelsT[i][j][k] = new Pixel<T, L>(i, j, k, label);
+                                                seedsL.add(gPixelsT[i][j][k]);
+                                                if (!labels.contains(label)) {
+                                                        labels.add(label);
+                                                }
+                                        } else {
+                                                gPixelsT[i][j][k] = new Pixel<T, L>(i, j, k, null);
+                                        }
 
-                                imageCursor.fwd();
-                                int currentPixel = imageCursor.get().getInteger();
-                                if (j > 0) {
-                                        int normal_weight = 255 - Math.abs(lastLine[i] - currentPixel);
-                                        ver_edges[i][j - 1] = new Edge<T, L>(gPixelsT[i][j - 1], gPixelsT[i][j], normal_weight);
-                                        edges.add(ver_edges[i][j - 1]);
-                                }
-                                lastLine[i] = currentPixel;
-                                if (i > 0) {
-                                        int normal_weight = 255 - Math.abs(lastLine[i - 1] - lastLine[i]);
-                                        hor_edges[i - 1][j] = new Edge<T, L>(gPixelsT[i - 1][j], gPixelsT[i][j], normal_weight);
-                                        edges.add(hor_edges[i - 1][j]);
+                                        if (!imageCursor.hasNext()) {
+                                                System.out.println("fuck");
+                                        }
+                                        imageCursor.fwd();
+                                        int currentPixel = imageCursor.get().getInteger();
+                                        if (j > 0) {
+                                                int normal_weight = 255 - Math.abs(lastSlice[i][j - 1] - currentPixel);
+                                                ver_edges[i][j - 1][k] = new Edge<T, L>(gPixelsT[i][j - 1][k], gPixelsT[i][j][k], normal_weight);
+                                                edges.add(ver_edges[i][j - 1][k]);
+                                        }
+                                        if (k > 0) {
+                                                int normal_weight = 255 - Math.abs(lastSlice[i][j] - currentPixel);
+                                                dep_edges[i][j][k - 1] = new Edge<T, L>(gPixelsT[i][j][k - 1], gPixelsT[i][j][k], normal_weight);
+                                                edges.add(dep_edges[i][j][k - 1]);
+                                        }
+                                        lastSlice[i][j] = currentPixel;
+                                        if (i > 0) {
+                                                int normal_weight = 255 - Math.abs(lastSlice[i - 1][j] - lastSlice[i][j]);
+                                                hor_edges[i - 1][j][k] = new Edge<T, L>(gPixelsT[i - 1][j][k], gPixelsT[i][j][k], normal_weight);
+                                                edges.add(hor_edges[i - 1][j][k]);
+                                        }
                                 }
                         }
                 }
@@ -109,34 +126,76 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                  */
                 for (Edge<T, L> e : edges) {
                         if (!e.isVertical()) {
-                                if (e.p1.getY() > 0) {
-                                        e.neighbors[0] = ver_edges[e.p2.getX()][e.p1.getY() - 1];
-                                        e.neighbors[1] = ver_edges[e.p1.getX()][e.p1.getY() - 1];
-                                }
-                                if (e.p1.getX() > 0) {
-                                        e.neighbors[2] = hor_edges[e.p1.getX() - 1][e.p1.getY()];
-                                }
-                                if (e.p1.getY() < ver_edges[0].length - 1) {
-                                        e.neighbors[3] = ver_edges[e.p1.getX()][e.p1.getY()];
-                                        e.neighbors[4] = ver_edges[e.p2.getX()][e.p1.getY()];
-                                }
-                                if (e.p1.getX() < hor_edges.length - 1) {
-                                        e.neighbors[5] = hor_edges[e.p2.getX()][e.p1.getY()];
+                                if (!e.isDepth()) {
+                                        if (e.p1.getY() > 0) {
+                                                e.neighbors[0] = ver_edges[e.p2.getX()][e.p1.getY() - 1][e.p1.getZ()];
+                                                e.neighbors[1] = ver_edges[e.p1.getX()][e.p1.getY() - 1][e.p1.getZ()];
+                                        }
+                                        if (e.p1.getX() > 0) {
+                                                e.neighbors[2] = hor_edges[e.p1.getX() - 1][e.p1.getY()][e.p1.getZ()];
+                                        }
+                                        if (e.p1.getY() < ver_edges[0].length) {
+                                                e.neighbors[3] = ver_edges[e.p1.getX()][e.p1.getY()][e.p1.getZ()];
+                                                e.neighbors[4] = ver_edges[e.p2.getX()][e.p1.getY()][e.p1.getZ()];
+                                        }
+                                        if (e.p2.getX() < hor_edges.length) {
+                                                e.neighbors[5] = hor_edges[e.p2.getX()][e.p1.getY()][e.p1.getZ()];
+                                        }
+                                        if (e.p1.getZ() > 0) {
+                                                e.neighbors[6] = dep_edges[e.p1.getX()][e.p1.getY()][e.p1.getZ() - 1];
+                                                e.neighbors[7] = dep_edges[e.p2.getX()][e.p2.getY()][e.p2.getZ() - 1];
+                                        }
+                                        if (e.p1.getZ() < dep_edges[0][0].length) {
+                                                e.neighbors[8] = dep_edges[e.p1.getX()][e.p1.getY()][e.p1.getZ()];
+                                                e.neighbors[9] = dep_edges[e.p2.getX()][e.p2.getY()][e.p2.getZ()];
+                                        }
+                                } else {
+                                        //e.isDepth()
+                                        if (e.p1.getX() > 0) {
+                                                e.neighbors[0] = hor_edges[e.p1.getX() - 1][e.p1.getY()][e.p1.getZ()];
+                                                e.neighbors[1] = hor_edges[e.p2.getX() - 1][e.p2.getY()][e.p2.getZ()];
+                                        }
+                                        if (e.p1.getY() > 0) {
+                                                e.neighbors[2] = ver_edges[e.p1.getX()][e.p1.getY() - 1][e.p1.getZ()];
+                                                e.neighbors[3] = ver_edges[e.p2.getX()][e.p2.getY() - 1][e.p2.getZ()];
+                                        }
+                                        if (e.p1.getZ() > 0) {
+                                                e.neighbors[4] = dep_edges[e.p1.getX()][e.p1.getY()][e.p1.getZ() - 1];
+                                        }
+                                        if (e.p1.getX() < hor_edges.length) {
+                                                e.neighbors[5] = hor_edges[e.p1.getX()][e.p1.getY()][e.p1.getZ()];
+                                                e.neighbors[6] = hor_edges[e.p2.getX()][e.p2.getY()][e.p2.getZ()];
+                                        }
+                                        if (e.p2.getY() < ver_edges[0].length) {
+                                                e.neighbors[7] = ver_edges[e.p1.getX()][e.p1.getY()][e.p1.getZ()];
+                                                e.neighbors[8] = ver_edges[e.p2.getX()][e.p2.getY()][e.p2.getZ()];
+                                        }
+                                        if (e.p2.getZ() < dep_edges[0][0].length) {
+                                                e.neighbors[9] = dep_edges[e.p2.getX()][e.p2.getY()][e.p2.getZ()];
+                                        }
                                 }
                         } else { // e.isVertical()
                                 if (e.p1.getY() > 0) {
-                                        e.neighbors[0] = ver_edges[e.p1.getX()][e.p1.getY() - 1];
+                                        e.neighbors[0] = ver_edges[e.p1.getX()][e.p1.getY() - 1][e.p1.getZ()];
                                 }
                                 if (e.p1.getX() > 0) {
-                                        e.neighbors[1] = hor_edges[e.p1.getX() - 1][e.p1.getY()];
-                                        e.neighbors[2] = hor_edges[e.p2.getX() - 1][e.p2.getY()];
+                                        e.neighbors[1] = hor_edges[e.p1.getX() - 1][e.p1.getY()][e.p1.getZ()];
+                                        e.neighbors[2] = hor_edges[e.p2.getX() - 1][e.p2.getY()][e.p1.getZ()];
                                 }
-                                if (e.p2.getY() < ver_edges[0].length - 1) {
-                                        e.neighbors[3] = ver_edges[e.p2.getX()][e.p2.getY()];
+                                if (e.p2.getY() < ver_edges[0].length) {
+                                        e.neighbors[3] = ver_edges[e.p2.getX()][e.p2.getY()][e.p1.getZ()];
                                 }
-                                if (e.p1.getX() < hor_edges.length - 1) {
-                                        e.neighbors[4] = hor_edges[e.p2.getX()][e.p2.getY()];
-                                        e.neighbors[5] = hor_edges[e.p1.getX()][e.p1.getY()];
+                                if (e.p1.getX() < hor_edges.length) {
+                                        e.neighbors[4] = hor_edges[e.p2.getX()][e.p2.getY()][e.p1.getZ()];
+                                        e.neighbors[5] = hor_edges[e.p1.getX()][e.p1.getY()][e.p1.getZ()];
+                                }
+                                if (e.p1.getZ() > 0) {
+                                        e.neighbors[6] = dep_edges[e.p1.getX()][e.p1.getY()][e.p1.getZ() - 1];
+                                        e.neighbors[7] = dep_edges[e.p2.getX()][e.p2.getY()][e.p2.getZ() - 1];
+                                }
+                                if (e.p1.getZ() < dep_edges[0][0].length) {
+                                        e.neighbors[8] = dep_edges[e.p1.getX()][e.p1.getY()][e.p1.getZ()];
+                                        e.neighbors[9] = dep_edges[e.p2.getX()][e.p2.getY()][e.p2.getZ()];
                                 }
                         }
                 }
@@ -146,23 +205,29 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                  */
                 for (Pixel<T, L> p : seedsL) {
                         if (p.getX() < hor_edges.length) {
-                                hor_edges[p.getX()][p.getY()].weight = hor_edges[p.getX()][p.getY()].normal_weight;
+                                hor_edges[p.getX()][p.getY()][p.getZ()].weight = hor_edges[p.getX()][p.getY()][p.getZ()].normal_weight;
                         }
-                        if (p.getY() < ver_edges.length) {
-                                ver_edges[p.getX()][p.getY()].weight = ver_edges[p.getX()][p.getY()].normal_weight;
+                        if (p.getY() < ver_edges[0].length) {
+                                ver_edges[p.getX()][p.getY()][p.getZ()].weight = ver_edges[p.getX()][p.getY()][p.getZ()].normal_weight;
+                        }
+                        if (p.getZ() < dep_edges[0][0].length) {
+                                ver_edges[p.getX()][p.getY()][p.getZ()].weight = ver_edges[p.getX()][p.getY()][p.getZ()].normal_weight;
                         }
                         if (p.getX() > 0) {
-                                hor_edges[p.getX() - 1][p.getY()].weight = hor_edges[p.getX() - 1][p.getY()].normal_weight;
+                                hor_edges[p.getX() - 1][p.getY()][p.getZ()].weight = hor_edges[p.getX() - 1][p.getY()][p.getZ()].normal_weight;
                         }
                         if (p.getY() > 0) {
-                                ver_edges[p.getX()][p.getY() - 1].weight = ver_edges[p.getX()][p.getY() - 1].normal_weight;
+                                ver_edges[p.getX()][p.getY() - 1][p.getZ()].weight = ver_edges[p.getX()][p.getY() - 1][p.getZ()].normal_weight;
+                        }
+                        if (p.getZ() > 0) {
+                                dep_edges[p.getX()][p.getY()][p.getZ() - 1].weight = dep_edges[p.getX()][p.getY()][p.getZ() - 1].normal_weight;
                         }
                 }
 
                 Edge.weights = false;
                 Collections.sort(edges);
                 Collections.reverse(edges);
-                //seeds_func are the edges, heaviest first
+                //heaviest first
                 for (Edge<T, L> e : edges) {
                         //go through the neighbors
                         for (Edge<T, L> n : e.neighbors) {
@@ -200,7 +265,7 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                         }
                 }
 
-                proba = new float[labels.size() - 1][width * height];
+                proba = new float[labels.size() - 1][width * height * depth];
                 for (float[] labelProb : proba) {
                         Arrays.fill(labelProb, -1);
                 }
@@ -224,12 +289,14 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
                 }
 
                 // building the final proba map (find the root vertex of each tree)
-                for (Pixel<T, L>[] gPixels : gPixelsT) {
-                        for (Pixel<T, L> j : gPixels) {
-                                Pixel<T, L> i = j.find();
-                                if (i != j) {
-                                        for (float[] labelProb : proba) {
-                                                labelProb[j.getPointer()] = labelProb[i.getPointer()];
+                for (Pixel<T, L>[][] gPixelsT2 : gPixelsT) {
+                        for (Pixel<T, L>[] gPixels : gPixelsT2) {
+                                for (Pixel<T, L> j : gPixels) {
+                                        Pixel<T, L> i = j.find();
+                                        if (i != j) {
+                                                for (float[] labelProb : proba) {
+                                                        labelProb[j.getPointer()] = labelProb[i.getPointer()];
+                                                }
                                         }
                                 }
                         }
@@ -240,7 +307,7 @@ public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> impleme
 
                 @SuppressWarnings("deprecation")
                 Cursor<LabelingType<L>> outCursor = output.cursor();
-                for (int j = 0; j < width * height; j++) {
+                for (int j = 0; j < width * height * depth; j++) {
                         double maxi = 0;
                         int argmax = 0;
                         double val = 1;
