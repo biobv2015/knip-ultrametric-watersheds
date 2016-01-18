@@ -35,24 +35,21 @@ public class PWSHEDOP<T extends RealType<T>, L extends Comparable<L>> extends Ab
     @Parameter(type = ItemIO.BOTH)
     private RandomAccessibleInterval<LabelingType<L>> output;
 
-    int width;
-    int height;
-    int depth;
     float[][] proba;
 
     @Override
     public void run() {
 
-        // save the width for easy access
-        width = (int) image.dimension(0);
-        Pixel.width = width;
-        // save the height for easy access
-        height = (int) image.dimension(1);
-        Pixel.height = height;
-        // save the depth for easy access
-        depth = (int) image.dimension(2);
+        long dimensions[] = new long[image.numDimensions()];
+        image.dimensions(dimensions);
+        Edge.dimensions = dimensions;
+        Pixel.dimensions = dimensions;
+        long[] position = new long[dimensions.length];
 
-        @SuppressWarnings("deprecation")
+        final T maxVal = Views.iterable(image).firstElement().createVariable();
+        maxVal.setReal(maxVal.getMaxValue());
+        double max = 1000000000;
+
         final Cursor<LabelingType<L>> seedCursor = Views.iterable(seeds).localizingCursor();
         ArrayList<Pixel<T, L>> seedsL = new ArrayList<>();
         ArrayList<L> labels = new ArrayList<L>();
@@ -62,16 +59,16 @@ public class PWSHEDOP<T extends RealType<T>, L extends Comparable<L>> extends Ab
          * input labeling. "labels" is the List of the labels, while "seedsL"
          * stores the seeds. Create the edges.
          */
-        Pixel<T, L>[][][] gPixelsT = new Pixel[width][height][depth];
+        Pixel<T, L>[][][] gPixelsT = new Pixel[(int) dimensions[0]][(int) dimensions[1]][(int) dimensions[2]];
         ArrayList<Edge<T, L>> edges = new ArrayList<>();
-        Edge<T, L>[][][] hor_edges = new Edge[width - 1][height][depth];
-        Edge<T, L>[][][] ver_edges = new Edge[width][height - 1][depth];
-        Edge<T, L>[][][] dep_edges = new Edge[width][height][depth - 1];
+        Edge<T, L>[][][] hor_edges = new Edge[(int) dimensions[0] - 1][(int) dimensions[1]][(int) dimensions[2]];
+        Edge<T, L>[][][] ver_edges = new Edge[(int) dimensions[0]][(int) dimensions[1] - 1][(int) dimensions[2]];
+        Edge<T, L>[][][] dep_edges = new Edge[(int) dimensions[0]][(int) dimensions[1]][(int) dimensions[2] - 1];
         final Cursor<T> imageCursor = Views.iterable(image).localizingCursor();
-        double[][] lastSlice = new double[width][height];
-        for (int k = 0; k < depth; k++) {
-            for (int j = 0; j < height; j++) {
-                for (int i = 0; i < width; i++) {
+        double[][] lastSlice = new double[(int) dimensions[0]][(int) dimensions[1]];
+        for (int k = 0; k < dimensions[2]; k++) {
+            for (int j = 0; j < dimensions[1]; j++) {
+                for (int i = 0; i < dimensions[0]; i++) {
                     if (!seedCursor.hasNext()) {
                         System.out.println("fuck");
                     }
@@ -94,20 +91,20 @@ public class PWSHEDOP<T extends RealType<T>, L extends Comparable<L>> extends Ab
                     imageCursor.fwd();
                     double currentPixel = imageCursor.get().getRealDouble();
                     if (j > 0) {
-                        double normal_weight = 255 - Math.abs(lastSlice[i][j - 1] - currentPixel);
+                        double normal_weight = max - Math.abs(lastSlice[i][j - 1] - currentPixel);
                         ver_edges[i][j - 1][k] = new Edge<T, L>(gPixelsT[i][j - 1][k], gPixelsT[i][j][k],
                                 normal_weight);
                         edges.add(ver_edges[i][j - 1][k]);
                     }
                     if (k > 0) {
-                        double normal_weight = 255 - Math.abs(lastSlice[i][j] - currentPixel);
+                        double normal_weight = max - Math.abs(lastSlice[i][j] - currentPixel);
                         dep_edges[i][j][k - 1] = new Edge<T, L>(gPixelsT[i][j][k - 1], gPixelsT[i][j][k],
                                 normal_weight);
                         edges.add(dep_edges[i][j][k - 1]);
                     }
                     lastSlice[i][j] = currentPixel;
                     if (i > 0) {
-                        double normal_weight = 255 - Math.abs(lastSlice[i - 1][j] - lastSlice[i][j]);
+                        double normal_weight = max - Math.abs(lastSlice[i - 1][j] - lastSlice[i][j]);
                         hor_edges[i - 1][j][k] = new Edge<T, L>(gPixelsT[i - 1][j][k], gPixelsT[i][j][k],
                                 normal_weight);
                         edges.add(hor_edges[i - 1][j][k]);
@@ -248,7 +245,7 @@ public class PWSHEDOP<T extends RealType<T>, L extends Comparable<L>> extends Ab
                         } else {
                             // if they have different normal_weights AND the
                             // root is less heavy than the normal_weight
-                            e.weight = 255;
+                            e.weight = max;
                         }
                     }
                 }
@@ -260,7 +257,7 @@ public class PWSHEDOP<T extends RealType<T>, L extends Comparable<L>> extends Ab
         for (Edge<T, L> e : edges) {
             if (e.Fth == e) {
                 // p is root
-                if (e.weight == 255) {
+                if (e.weight == max) {
                     e.weight = e.normal_weight;
                 }
             } else {
@@ -268,7 +265,7 @@ public class PWSHEDOP<T extends RealType<T>, L extends Comparable<L>> extends Ab
             }
         }
 
-        proba = new float[labels.size() - 1][width * height * depth];
+        proba = new float[labels.size() - 1][(int) (dimensions[0] * dimensions[1] * dimensions[2])];
         for (float[] labelProb : proba) {
             Arrays.fill(labelProb, -1);
         }
@@ -305,9 +302,8 @@ public class PWSHEDOP<T extends RealType<T>, L extends Comparable<L>> extends Ab
             }
         }
 
-        @SuppressWarnings("deprecation")
         Cursor<LabelingType<L>> outCursor = Views.iterable(output).localizingCursor();
-        for (int j = 0; j < width * height * depth; j++) {
+        for (int j = 0; j < dimensions[0] * dimensions[1] * dimensions[2]; j++) {
             double maxi = 0;
             int argmax = 0;
             double val = 1;
