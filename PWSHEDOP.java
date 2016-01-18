@@ -21,7 +21,7 @@ import net.imglib2.type.numeric.RealType;
 import net.imglib2.view.Views;
 
 @Plugin(type = Op.class)
-public class PWSHEDOP<T extends RealType<T>, L extends Comparable<L>> extends AbstractOp {
+public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> extends AbstractOp {
 
     private static int SIZE_MAX_PLATEAU = 1000000;
     private static double EPSILON = 0.000001;
@@ -39,6 +39,8 @@ public class PWSHEDOP<T extends RealType<T>, L extends Comparable<L>> extends Ab
 
     @Override
     public void run() {
+        
+        checkInput();
 
         long dimensions[] = new long[image.numDimensions()];
         image.dimensions(dimensions);
@@ -304,6 +306,7 @@ public class PWSHEDOP<T extends RealType<T>, L extends Comparable<L>> extends Ab
 
         Cursor<LabelingType<L>> outCursor = Views.iterable(output).localizingCursor();
         for (int j = 0; j < dimensions[0] * dimensions[1] * dimensions[2]; j++) {
+            outCursor.fwd();
             double maxi = 0;
             int argmax = 0;
             double val = 1;
@@ -320,7 +323,6 @@ public class PWSHEDOP<T extends RealType<T>, L extends Comparable<L>> extends Ab
             }
             outCursor.get().clear();
             outCursor.get().add(labels.get(argmax));
-            outCursor.fwd();
         }
 
     }
@@ -606,6 +608,45 @@ public class PWSHEDOP<T extends RealType<T>, L extends Comparable<L>> extends Ab
             } else {
                 for (float[] labelProb : proba) {
                     labelProb[p2.getPointer()] = labelProb[p1.getPointer()];
+                }
+            }
+        }
+    }
+
+    /**
+     * Check if input is valid
+     *
+     * @param image
+     * @param seeds
+     * @param output
+     */
+    private void checkInput() {
+        if (seeds.numDimensions() != image.numDimensions()) {
+            throw new IllegalArgumentException(String.format(
+                    "The dimensionality of the seed labeling (%dD) does not match that of the intensity image (%dD)",
+                    seeds.numDimensions(), image.numDimensions()));
+        }
+        if (seeds.numDimensions() != output.numDimensions()) {
+            throw new IllegalArgumentException(String.format(
+                    "The dimensionality of the seed labeling (%dD) does not match that of the output labeling (%dD)",
+                    seeds.numDimensions(), output.numDimensions()));
+        }
+        if (seeds.numDimensions() > 3) {
+            throw new IllegalArgumentException("more than 3 dimensions not yet supported");
+        } else {
+            if (seeds.numDimensions() > 2) {
+                if (seeds.dimension(2) != image.dimension(2) || seeds.dimension(2) != output.dimension(2)) {
+                    throw new IllegalArgumentException("only images with identical size are supported right now");
+                }
+            }
+            if (seeds.numDimensions() > 1) {
+                if (seeds.dimension(1) != image.dimension(1) || seeds.dimension(1) != output.dimension(1)) {
+                    throw new IllegalArgumentException("only images with identical size are supported right now");
+                }
+            }
+            if (seeds.numDimensions() > 0) {
+                if (seeds.dimension(0) != image.dimension(0) || seeds.dimension(0) != output.dimension(0)) {
+                    throw new IllegalArgumentException("only images with identical size are supported right now");
                 }
             }
         }
