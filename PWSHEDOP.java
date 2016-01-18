@@ -264,34 +264,44 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
          */
         for (Pixel<T, L> p : seedsL) {
             if (p.getX() < hor_edges_dims[0]) {
-                hor_edges[toPointer(new int[] { p.getX(), p.getY(), p.getZ() },
-                        hor_edges_dims)].weight = hor_edges[toPointer(new int[] { p.getX(), p.getY(), p.getZ() },
-                                hor_edges_dims)].normal_weight;
+                hor_edges[(int) (p.getPointer()
+                        - Math.floorDiv(p.getPointer() % (dimensions[0] * dimensions[1]), dimensions[0])
+                        - Math.floorDiv(p.getPointer(), (dimensions[0] * dimensions[1]))
+                                * dimensions[1])].weight = hor_edges[(int) (p.getPointer()
+                                        - Math.floorDiv(p.getPointer() % (dimensions[0] * dimensions[1]), dimensions[0])
+                                        - Math.floorDiv(p.getPointer(), (dimensions[0] * dimensions[1]))
+                                                * dimensions[1])].normal_weight;
             }
             if (p.getY() < ver_edges_dims[1]) {
-                ver_edges[toPointer(new int[] { p.getX(), p.getY(), p.getZ() },
-                        ver_edges_dims)].weight = ver_edges[toPointer(new int[] { p.getX(), p.getY(), p.getZ() },
-                                ver_edges_dims)].normal_weight;
+                ver_edges[(int) (p.getPointer() - dimensions[0]
+                        * Math.floorDiv(p.getPointer(), dimensions[0] * dimensions[1]))].weight = ver_edges[(int) (p
+                                .getPointer()
+                                - dimensions[0]
+                                        * Math.floorDiv(p.getPointer(), dimensions[0] * dimensions[1]))].normal_weight;
             }
             if (p.getZ() < dep_edges_dims[2]) {
-                dep_edges[toPointer(new int[] { p.getX(), p.getY(), p.getZ() },
-                        dep_edges_dims)].weight = dep_edges[toPointer(new int[] { p.getX(), p.getY(), p.getZ() },
-                                dep_edges_dims)].normal_weight;
+                dep_edges[p.getPointer()].weight = dep_edges[p.getPointer()].normal_weight;
             }
             if (p.getX() > 0) {
-                hor_edges[toPointer(new int[] { p.getX() - 1, p.getY(), p.getZ() },
-                        hor_edges_dims)].weight = hor_edges[toPointer(new int[] { p.getX() - 1, p.getY(), p.getZ() },
-                                hor_edges_dims)].normal_weight;
+                hor_edges[(int) (p.getPointer() - 1
+                        - Math.floorDiv(p.getPointer() % (dimensions[0] * dimensions[1]), dimensions[0])
+                        - Math.floorDiv(p.getPointer(), (dimensions[0] * dimensions[1]))
+                                * dimensions[1])].weight = hor_edges[(int) (p.getPointer() - 1
+                                        - Math.floorDiv(p.getPointer() % (dimensions[0] * dimensions[1]), dimensions[0])
+                                        - Math.floorDiv(p.getPointer(), (dimensions[0] * dimensions[1]))
+                                                * dimensions[1])].normal_weight;
             }
             if (p.getY() > 0) {
-                ver_edges[toPointer(new int[] { p.getX(), p.getY() - 1, p.getZ() },
-                        ver_edges_dims)].weight = ver_edges[toPointer(new int[] { p.getX(), p.getY() - 1, p.getZ() },
-                                ver_edges_dims)].normal_weight;
+                ver_edges[(int) (p.getPointer() - dimensions[0] - dimensions[0]
+                        * Math.floorDiv(p.getPointer(), dimensions[0] * dimensions[1]))].weight = ver_edges[(int) (p
+                                .getPointer() - dimensions[0]
+                                - dimensions[0]
+                                        * Math.floorDiv(p.getPointer(), dimensions[0] * dimensions[1]))].normal_weight;
             }
             if (p.getZ() > 0) {
-                dep_edges[toPointer(new int[] { p.getX(), p.getY(), p.getZ() - 1 },
-                        dep_edges_dims)].weight = dep_edges[toPointer(new int[] { p.getX(), p.getY(), p.getZ() - 1 },
-                                dep_edges_dims)].normal_weight;
+                dep_edges[(int) (p.getPointer()
+                        - (dimensions[0] * dimensions[1]))].weight = dep_edges[(int) (p.getPointer()
+                                - (dimensions[0] * dimensions[1]))].normal_weight;
             }
         }
 
