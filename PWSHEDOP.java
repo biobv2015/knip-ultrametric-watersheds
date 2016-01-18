@@ -61,8 +61,8 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
          * input labeling. "labels" is the List of the labels, while "seedsL"
          * stores the seeds. Create the edges.
          */
-        Pixel<T, L>[][][] gPixelsT = new Pixel[(int) dimensions[0]][(int) dimensions[1]][dimensions.length > 2
-                ? (int) dimensions[2] : 1];
+        Pixel<T, L>[] gPixelsT = new Pixel[(int) (dimensions[0] * dimensions[1]
+                * (dimensions.length > 2 ? dimensions[2] : 1))];
         ArrayList<Edge<T, L>> edges = new ArrayList<>();
         Edge<T, L>[][][] hor_edges = new Edge[(int) dimensions[0] - 1][(int) dimensions[1]][dimensions.length > 2
                 ? (int) dimensions[2] : 1];
@@ -82,13 +82,13 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                     LabelingType<L> labeling = seedCursor.get();
                     if (labeling.size() != 0) {
                         L label = labeling.iterator().next();
-                        gPixelsT[i][j][k] = new Pixel<T, L>(i, j, k, label);
-                        seedsL.add(gPixelsT[i][j][k]);
+                        gPixelsT[toPointer(new int[] { i, j, k }, dimensions)] = new Pixel<T, L>(i, j, k, label);
+                        seedsL.add(gPixelsT[toPointer(new int[] { i, j, k }, dimensions)]);
                         if (!labels.contains(label)) {
                             labels.add(label);
                         }
                     } else {
-                        gPixelsT[i][j][k] = new Pixel<T, L>(i, j, k, null);
+                        gPixelsT[toPointer(new int[] { i, j, k }, dimensions)] = new Pixel<T, L>(i, j, k, null);
                     }
 
                     if (!imageCursor.hasNext()) {
@@ -98,21 +98,24 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                     double currentPixel = imageCursor.get().getRealDouble();
                     if (j > 0) {
                         double normal_weight = max - Math.abs(lastSlice[i][j - 1] - currentPixel);
-                        ver_edges[i][j - 1][k] = new Edge<T, L>(gPixelsT[i][j - 1][k], gPixelsT[i][j][k],
-                                normal_weight);
+                        ver_edges[i][j - 1][k] = new Edge<T, L>(
+                                gPixelsT[toPointer(new int[] { i, j - 1, k }, dimensions)],
+                                gPixelsT[toPointer(new int[] { i, j, k }, dimensions)], normal_weight);
                         edges.add(ver_edges[i][j - 1][k]);
                     }
                     if (k > 0) {
                         double normal_weight = max - Math.abs(lastSlice[i][j] - currentPixel);
-                        dep_edges[i][j][k - 1] = new Edge<T, L>(gPixelsT[i][j][k - 1], gPixelsT[i][j][k],
-                                normal_weight);
+                        dep_edges[i][j][k - 1] = new Edge<T, L>(
+                                gPixelsT[toPointer(new int[] { i, j, k - 1 }, dimensions)],
+                                gPixelsT[toPointer(new int[] { i, j, k }, dimensions)], normal_weight);
                         edges.add(dep_edges[i][j][k - 1]);
                     }
                     lastSlice[i][j] = currentPixel;
                     if (i > 0) {
                         double normal_weight = max - Math.abs(lastSlice[i - 1][j] - lastSlice[i][j]);
-                        hor_edges[i - 1][j][k] = new Edge<T, L>(gPixelsT[i - 1][j][k], gPixelsT[i][j][k],
-                                normal_weight);
+                        hor_edges[i - 1][j][k] = new Edge<T, L>(
+                                gPixelsT[toPointer(new int[] { i - 1, j, k }, dimensions)],
+                                gPixelsT[toPointer(new int[] { i, j, k }, dimensions)], normal_weight);
                         edges.add(hor_edges[i - 1][j][k]);
                     }
                 }
@@ -271,7 +274,8 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
             }
         }
 
-        proba = new float[labels.size() - 1][(int) (dimensions[0] * dimensions[1] * (dimensions.length > 2 ? (int) dimensions[2] : 1))];
+        proba = new float[labels.size()
+                - 1][(int) (dimensions[0] * dimensions[1] * (dimensions.length > 2 ? (int) dimensions[2] : 1))];
         for (float[] labelProb : proba) {
             Arrays.fill(labelProb, -1);
         }
@@ -295,15 +299,11 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
         }
 
         // building the final proba map (find the root vertex of each tree)
-        for (Pixel<T, L>[][] gPixelsT2 : gPixelsT) {
-            for (Pixel<T, L>[] gPixels : gPixelsT2) {
-                for (Pixel<T, L> j : gPixels) {
-                    Pixel<T, L> i = j.find();
-                    if (i != j) {
-                        for (float[] labelProb : proba) {
-                            labelProb[j.getPointer()] = labelProb[i.getPointer()];
-                        }
-                    }
+        for (Pixel<T, L> j : gPixelsT) {
+            Pixel<T, L> i = j.find();
+            if (i != j) {
+                for (float[] labelProb : proba) {
+                    labelProb[j.getPointer()] = labelProb[i.getPointer()];
                 }
             }
         }
@@ -654,6 +654,26 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                 }
             }
         }
+    }
+
+    private int[] toCoordinates(int pointer, long[] dim) {
+        int[] coord = new int[dim.length];
+        int index = pointer;
+        for (int i = 0; i < dim.length; i++) {
+            coord[i] = (int) (index % dim[i]);
+            index /= dim[i];
+        }
+        return coord;
+    }
+
+    private int toPointer(int[] coord, long[] dim) {
+        int pointer = coord[0];
+        int mult = (int) dim[0];
+        for (int i = 1; i < coord.length; i++) {
+            pointer += coord[i] * mult;
+            mult *= dim.length > i ? (int) dim[i] : 1;
+        }
+        return pointer;
     }
 
 }
