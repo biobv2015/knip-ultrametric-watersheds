@@ -1,8 +1,8 @@
 package net.imagej.ops.labeling.watershed;
 
-import net.imglib2.type.numeric.IntegerType;
+import net.imglib2.type.numeric.RealType;
 
-public class Pixel<T extends IntegerType<T>, L extends Comparable<L>> {
+public class Pixel<T extends RealType<T>, L extends Comparable<L>> {
         private final int x;
         private final int y;
         private final int z;

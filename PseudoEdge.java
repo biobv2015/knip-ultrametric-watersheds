@@ -1,8 +1,8 @@
 package net.imagej.ops.labeling.watershed;
 
-import net.imglib2.type.numeric.IntegerType;
+import net.imglib2.type.numeric.RealType;
 
-public class PseudoEdge<T extends IntegerType<T>, L extends Comparable<L>> implements Comparable<PseudoEdge<T, L>> {
+public class PseudoEdge<T extends RealType<T>, L extends Comparable<L>> implements Comparable<PseudoEdge<T, L>> {
         Pixel<T, L> p1;
         Pixel<T, L> p2;
 

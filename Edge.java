@@ -1,10 +1,10 @@
 package net.imagej.ops.labeling.watershed;
 
-import net.imglib2.type.numeric.IntegerType;
+import net.imglib2.type.numeric.RealType;
 
-public class Edge<T extends IntegerType<T>, L extends Comparable<L>> implements Comparable<Edge<T, L>> {
-        final int normal_weight;
-        int weight = 0;
+public class Edge<T extends RealType<T>, L extends Comparable<L>> implements Comparable<Edge<T, L>> {
+        final double normal_weight;
+        double weight = 0;
         Edge<T, L>[] neighbors;
         boolean visited;
         final Pixel<T, L> p1;
@@ -14,7 +14,7 @@ public class Edge<T extends IntegerType<T>, L extends Comparable<L>> implements 
 
         static boolean weights;
 
-        Edge(Pixel<T, L> p1, Pixel<T, L> p2, int normal_weight) {
+        Edge(Pixel<T, L> p1, Pixel<T, L> p2, double normal_weight) {
                 neighbors = new Edge[10];
                 this.p1 = p1;
                 this.p2 = p2;
