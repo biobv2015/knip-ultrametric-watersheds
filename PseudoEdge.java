@@ -1,4 +1,4 @@
-package org.knime.knip.example;
+package net.imagej.ops.labeling.watershed;
 
 import net.imglib2.type.numeric.IntegerType;
 

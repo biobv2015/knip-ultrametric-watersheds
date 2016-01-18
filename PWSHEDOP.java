@@ -1,4 +1,4 @@
-package org.knime.knip.example;
+package net.imagej.ops.labeling.watershed;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -15,6 +15,7 @@ import org.scijava.plugin.Plugin;
 import Jama.LUDecomposition;
 import Jama.Matrix;
 import net.imagej.ImgPlus;
+import net.imagej.ops.AbstractOp;
 import net.imagej.ops.Op;
 import net.imagej.ops.OpService;
 import net.imglib2.Cursor;
@@ -22,9 +23,8 @@ import net.imglib2.labeling.Labeling;
 import net.imglib2.labeling.LabelingType;
 import net.imglib2.type.numeric.IntegerType;
 
-@Plugin(menu = {@Menu(label = "DeveloperPlugins"),
-                @Menu(label = "PowerWatershed")}, description = "TODO", headless = true, type = Op.class, name = "PWSHED")
-public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> implements Op {
+@Plugin(type = Op.class)
+public class PWSHEDOP<T extends IntegerType<T>, L extends Comparable<L>> extends AbstractOp {
 
         public static int SIZE_MAX_PLATEAU = 1000000;
         public static double epsilon = 0.000001;
