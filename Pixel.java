@@ -22,18 +22,6 @@ public class Pixel<T extends RealType<T>, L extends Comparable<L>> {
         return Fth;
     }
 
-    int getX() {
-        return (int) (pointer % dimensions[0]);
-    }
-
-    int getY() {
-        return (int) Math.floorDiv((pointer % (dimensions[0] * dimensions[1])), dimensions[1]);
-    }
-
-    int getZ() {
-        return (int) Math.floorDiv(pointer, (dimensions[0] * dimensions[1]));
-    }
-
     int getPointer() {
         return (int) pointer;
     }

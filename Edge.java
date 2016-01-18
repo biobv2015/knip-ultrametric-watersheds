@@ -50,10 +50,12 @@ public class Edge<T extends RealType<T>, L extends Comparable<L>> implements Com
     }
 
     boolean isVertical() {
-        return p2.getX() == p1.getX() && p1.getZ() == p2.getZ();
+        return Math.floorDiv((p1.getPointer() % (dimensions[0] * dimensions[1])), dimensions[1]) != Math
+                .floorDiv((p2.getPointer() % (dimensions[0] * dimensions[1])), dimensions[1]);
     }
 
     boolean isDepth() {
-        return p2.getZ() != p1.getZ();
+        return Math.floorDiv(p1.getPointer(), (dimensions[0] * dimensions[1])) != Math.floorDiv(p2.getPointer(),
+                (dimensions[0] * dimensions[1]));
     }
 }
