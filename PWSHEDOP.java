@@ -72,8 +72,10 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                 (int) (dimensions.length > 2 ? (int) dimensions[2] : 1) };
         Edge<T, L>[] ver_edges = new Edge[(int) (dimensions[0] * (dimensions[1] - 1)
                 * (dimensions.length > 2 ? (int) dimensions[2] : 1))];
-        Edge<T, L>[][][] dep_edges = new Edge[(int) dimensions[0]][(int) dimensions[1]][(dimensions.length > 2
-                ? (int) dimensions[2] : 1) - 1];
+        long[] dep_edges_dims = new long[] { (int) dimensions[0], (int) dimensions[1],
+                (int) (dimensions.length > 2 ? (int) dimensions[2] : 1) - 1 };
+        Edge<T, L>[] dep_edges = new Edge[(int) (dimensions[0] * dimensions[1]
+                * ((dimensions.length > 2 ? (int) dimensions[2] : 1) - 1))];
         final Cursor<T> imageCursor = Views.iterable(image).localizingCursor();
         double[][] lastSlice = new double[(int) dimensions[0]][(int) dimensions[1]];
         for (int k = 0; k < (dimensions.length > 2 ? (int) dimensions[2] : 1); k++) {
@@ -109,10 +111,10 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                     }
                     if (k > 0) {
                         double normal_weight = max - Math.abs(lastSlice[i][j] - currentPixel);
-                        dep_edges[i][j][k - 1] = new Edge<T, L>(
+                        dep_edges[toPointer(new int[] { i, j, k - 1 }, dep_edges_dims)] = new Edge<T, L>(
                                 gPixelsT[toPointer(new int[] { i, j, k - 1 }, dimensions)],
                                 gPixelsT[toPointer(new int[] { i, j, k }, dimensions)], normal_weight);
-                        edges.add(dep_edges[i][j][k - 1]);
+                        edges.add(dep_edges[toPointer(new int[] { i, j, k - 1 }, dep_edges_dims)]);
                     }
                     lastSlice[i][j] = currentPixel;
                     if (i > 0) {
@@ -153,12 +155,16 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                                 hor_edges_dims)];
                     }
                     if (e.p1.getZ() > 0) {
-                        e.neighbors[6] = dep_edges[e.p1.getX()][e.p1.getY()][e.p1.getZ() - 1];
-                        e.neighbors[7] = dep_edges[e.p2.getX()][e.p2.getY()][e.p2.getZ() - 1];
+                        e.neighbors[6] = dep_edges[toPointer(new int[] { e.p1.getX(), e.p1.getY(), e.p1.getZ() - 1 },
+                                dep_edges_dims)];
+                        e.neighbors[7] = dep_edges[toPointer(new int[] { e.p2.getX(), e.p2.getY(), e.p2.getZ() - 1 },
+                                dep_edges_dims)];
                     }
-                    if (e.p1.getZ() < dep_edges[0][0].length) {
-                        e.neighbors[8] = dep_edges[e.p1.getX()][e.p1.getY()][e.p1.getZ()];
-                        e.neighbors[9] = dep_edges[e.p2.getX()][e.p2.getY()][e.p2.getZ()];
+                    if (e.p1.getZ() < dep_edges_dims[2]) {
+                        e.neighbors[8] = dep_edges[toPointer(new int[] { e.p1.getX(), e.p1.getY(), e.p1.getZ() },
+                                dep_edges_dims)];
+                        e.neighbors[9] = dep_edges[toPointer(new int[] { e.p2.getX(), e.p2.getY(), e.p2.getZ() },
+                                dep_edges_dims)];
                     }
                 } else {
                     // e.isDepth()
@@ -175,7 +181,8 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                                 ver_edges_dims)];
                     }
                     if (e.p1.getZ() > 0) {
-                        e.neighbors[4] = dep_edges[e.p1.getX()][e.p1.getY()][e.p1.getZ() - 1];
+                        e.neighbors[4] = dep_edges[toPointer(new int[] { e.p1.getX(), e.p1.getY(), e.p1.getZ() - 1 },
+                                dep_edges_dims)];
                     }
                     if (e.p1.getX() < hor_edges_dims[0]) {
                         e.neighbors[5] = hor_edges[toPointer(new int[] { e.p1.getX(), e.p1.getY(), e.p1.getZ() },
@@ -189,8 +196,9 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                         e.neighbors[8] = ver_edges[toPointer(new int[] { e.p2.getX(), e.p2.getY(), e.p2.getZ() },
                                 ver_edges_dims)];
                     }
-                    if (e.p2.getZ() < dep_edges[0][0].length) {
-                        e.neighbors[9] = dep_edges[e.p2.getX()][e.p2.getY()][e.p2.getZ()];
+                    if (e.p2.getZ() < dep_edges_dims[2]) {
+                        e.neighbors[9] = dep_edges[toPointer(new int[] { e.p2.getX(), e.p2.getY(), e.p2.getZ() },
+                                dep_edges_dims)];
                     }
                 }
             } else { // e.isVertical()
@@ -215,12 +223,16 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                             hor_edges_dims)];
                 }
                 if (e.p1.getZ() > 0) {
-                    e.neighbors[6] = dep_edges[e.p1.getX()][e.p1.getY()][e.p1.getZ() - 1];
-                    e.neighbors[7] = dep_edges[e.p2.getX()][e.p2.getY()][e.p2.getZ() - 1];
+                    e.neighbors[6] = dep_edges[toPointer(new int[] { e.p1.getX(), e.p1.getY(), e.p1.getZ() - 1 },
+                            dep_edges_dims)];
+                    e.neighbors[7] = dep_edges[toPointer(new int[] { e.p2.getX(), e.p2.getY(), e.p2.getZ() - 1 },
+                            dep_edges_dims)];
                 }
-                if (e.p1.getZ() < dep_edges[0][0].length) {
-                    e.neighbors[8] = dep_edges[e.p1.getX()][e.p1.getY()][e.p1.getZ()];
-                    e.neighbors[9] = dep_edges[e.p2.getX()][e.p2.getY()][e.p2.getZ()];
+                if (e.p1.getZ() < dep_edges_dims[2]) {
+                    e.neighbors[8] = dep_edges[toPointer(new int[] { e.p1.getX(), e.p1.getY(), e.p1.getZ() },
+                            dep_edges_dims)];
+                    e.neighbors[9] = dep_edges[toPointer(new int[] { e.p2.getX(), e.p2.getY(), e.p2.getZ() },
+                            dep_edges_dims)];
                 }
             }
         }
@@ -240,8 +252,10 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                         ver_edges_dims)].weight = ver_edges[toPointer(new int[] { p.getX(), p.getY(), p.getZ() },
                                 ver_edges_dims)].normal_weight;
             }
-            if (p.getZ() < dep_edges[0][0].length) {
-                dep_edges[p.getX()][p.getY()][p.getZ()].weight = dep_edges[p.getX()][p.getY()][p.getZ()].normal_weight;
+            if (p.getZ() < dep_edges_dims[2]) {
+                dep_edges[toPointer(new int[] { p.getX(), p.getY(), p.getZ() },
+                        dep_edges_dims)].weight = dep_edges[toPointer(new int[] { p.getX(), p.getY(), p.getZ() },
+                                dep_edges_dims)].normal_weight;
             }
             if (p.getX() > 0) {
                 hor_edges[toPointer(new int[] { p.getX() - 1, p.getY(), p.getZ() },
@@ -254,8 +268,9 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                                 ver_edges_dims)].normal_weight;
             }
             if (p.getZ() > 0) {
-                dep_edges[p.getX()][p.getY()][p.getZ() - 1].weight = dep_edges[p.getX()][p.getY()][p.getZ()
-                        - 1].normal_weight;
+                dep_edges[toPointer(new int[] { p.getX(), p.getY(), p.getZ() - 1 },
+                        dep_edges_dims)].weight = dep_edges[toPointer(new int[] { p.getX(), p.getY(), p.getZ() - 1 },
+                                dep_edges_dims)].normal_weight;
             }
         }
 
