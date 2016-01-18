@@ -6,6 +6,8 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Stack;
 
+import javax.management.RuntimeErrorException;
+
 import org.scijava.ItemIO;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
@@ -64,67 +66,74 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
         Pixel<T, L>[] gPixelsT = new Pixel[(int) (dimensions[0] * dimensions[1]
                 * (dimensions.length > 2 ? dimensions[2] : 1))];
         ArrayList<Edge<T, L>> edges = new ArrayList<>();
+
         long[] hor_edges_dims = new long[] { dimensions[0] - 1, dimensions[1],
                 dimensions.length > 2 ? (int) dimensions[2] : 1 };
+        long[] ver_edges_dims = new long[] { dimensions[0], dimensions[1] - 1,
+                dimensions.length > 2 ? (int) dimensions[2] : 1 };
+        long[] dep_edges_dims = new long[] { dimensions[0], dimensions[1],
+                (dimensions.length > 2 ? (int) dimensions[2] : 1) - 1 };
+
         Edge<T, L>[] hor_edges = new Edge[(int) ((dimensions[0] - 1) * dimensions[1]
                 * (dimensions.length > 2 ? (int) dimensions[2] : 1))];
-        long[] ver_edges_dims = new long[] { (int) dimensions[0], (int) (dimensions[1] - 1),
-                (int) (dimensions.length > 2 ? (int) dimensions[2] : 1) };
+
         Edge<T, L>[] ver_edges = new Edge[(int) (dimensions[0] * (dimensions[1] - 1)
                 * (dimensions.length > 2 ? (int) dimensions[2] : 1))];
-        long[] dep_edges_dims = new long[] { (int) dimensions[0], (int) dimensions[1],
-                (int) (dimensions.length > 2 ? (int) dimensions[2] : 1) - 1 };
+
         Edge<T, L>[] dep_edges = new Edge[(int) (dimensions[0] * dimensions[1]
                 * ((dimensions.length > 2 ? (int) dimensions[2] : 1) - 1))];
-        final Cursor<T> imageCursor = Views.iterable(image).localizingCursor();
-        double[][] lastSlice = new double[(int) dimensions[0]][(int) dimensions[1]];
-        for (int k = 0; k < (dimensions.length > 2 ? (int) dimensions[2] : 1); k++) {
-            for (int j = 0; j < dimensions[1]; j++) {
-                for (int i = 0; i < dimensions[0]; i++) {
-                    if (!seedCursor.hasNext()) {
-                        System.out.println("fuck");
-                    }
-                    seedCursor.fwd();
-                    LabelingType<L> labeling = seedCursor.get();
-                    if (labeling.size() != 0) {
-                        L label = labeling.iterator().next();
-                        gPixelsT[toPointer(new int[] { i, j, k }, dimensions)] = new Pixel<T, L>(i, j, k, label);
-                        seedsL.add(gPixelsT[toPointer(new int[] { i, j, k }, dimensions)]);
-                        if (!labels.contains(label)) {
-                            labels.add(label);
-                        }
-                    } else {
-                        gPixelsT[toPointer(new int[] { i, j, k }, dimensions)] = new Pixel<T, L>(i, j, k, null);
-                    }
 
-                    if (!imageCursor.hasNext()) {
-                        System.out.println("fuck");
-                    }
-                    imageCursor.fwd();
-                    double currentPixel = imageCursor.get().getRealDouble();
-                    if (j > 0) {
-                        double normal_weight = max - Math.abs(lastSlice[i][j - 1] - currentPixel);
-                        ver_edges[toPointer(new int[] { i, j - 1, k }, ver_edges_dims)] = new Edge<T, L>(
-                                gPixelsT[toPointer(new int[] { i, j - 1, k }, dimensions)],
-                                gPixelsT[toPointer(new int[] { i, j, k }, dimensions)], normal_weight);
-                        edges.add(ver_edges[toPointer(new int[] { i, j - 1, k }, ver_edges_dims)]);
-                    }
-                    if (k > 0) {
-                        double normal_weight = max - Math.abs(lastSlice[i][j] - currentPixel);
-                        dep_edges[toPointer(new int[] { i, j, k - 1 }, dep_edges_dims)] = new Edge<T, L>(
-                                gPixelsT[toPointer(new int[] { i, j, k - 1 }, dimensions)],
-                                gPixelsT[toPointer(new int[] { i, j, k }, dimensions)], normal_weight);
-                        edges.add(dep_edges[toPointer(new int[] { i, j, k - 1 }, dep_edges_dims)]);
-                    }
-                    lastSlice[i][j] = currentPixel;
-                    if (i > 0) {
-                        double normal_weight = max - Math.abs(lastSlice[i - 1][j] - lastSlice[i][j]);
-                        hor_edges[toPointer(new int[] { i - 1, j, k }, hor_edges_dims)] = new Edge<T, L>(
-                                gPixelsT[toPointer(new int[] { i - 1, j, k }, dimensions)],
-                                gPixelsT[toPointer(new int[] { i, j, k }, dimensions)], normal_weight);
-                        edges.add(hor_edges[toPointer(new int[] { i - 1, j, k }, hor_edges_dims)]);
-                    }
+        final Cursor<T> imageCursor = Views.iterable(image).localizingCursor();
+        double[] lastSlice = new double[(int) (dimensions[0] * dimensions[1])];
+
+        for (int pointer = 0; pointer < (dimensions.length > 2 ? (int) dimensions[2] : 1) * dimensions[1]
+                * dimensions[0]; pointer++) {
+
+            if (!seedCursor.hasNext()) {
+                throw new RuntimeErrorException(null, "seedCursor error");
+            }
+            LabelingType<L> labeling = seedCursor.next();
+            if (labeling.size() != 0) {
+                L label = labeling.iterator().next();
+                gPixelsT[pointer] = new Pixel<T, L>(pointer, label);
+                seedsL.add(gPixelsT[pointer]);
+                if (!labels.contains(label)) {
+                    labels.add(label);
                 }
+            } else {
+                gPixelsT[pointer] = new Pixel<T, L>(pointer, null);
+            }
+
+            if (!imageCursor.hasNext()) {
+                throw new RuntimeErrorException(null, "imageCursor error");
+            }
+            double currentPixel = imageCursor.next().getRealDouble();
+            if (pointer % (dimensions[0] * dimensions[1]) >= dimensions[0]) {
+                double normal_weight = max - Math.abs(
+                        lastSlice[(int) (pointer % (dimensions[0] * dimensions[1]) - dimensions[0])] - currentPixel);
+                ver_edges[(int) (pointer - dimensions[0]
+                        * (1 + Math.floor(pointer / (dimensions[0] * dimensions[1]))))] = new Edge<T, L>(
+                                gPixelsT[(int) (pointer - dimensions[0])], gPixelsT[pointer], normal_weight);
+                edges.add(ver_edges[(int) (pointer
+                        - dimensions[0] * (1 + Math.floor(pointer / (dimensions[0] * dimensions[1]))))]);
+            }
+            if (pointer >= dimensions[0] * dimensions[1]) {
+                double normal_weight = max
+                        - Math.abs(lastSlice[(int) (pointer % (dimensions[0] * dimensions[1]))] - currentPixel);
+                dep_edges[(int) (pointer - (dimensions[0] * dimensions[1]))] = new Edge<T, L>(
+                        gPixelsT[(int) (pointer - (dimensions[0] * dimensions[1]))], gPixelsT[pointer], normal_weight);
+                edges.add(dep_edges[(int) (pointer - (dimensions[0] * dimensions[1]))]);
+            }
+            lastSlice[(int) (pointer % (dimensions[0] * dimensions[1]))] = currentPixel;
+            if (pointer % dimensions[0] > 0) {
+                double normal_weight = max - Math.abs(lastSlice[(int) (pointer % (dimensions[0] * dimensions[1]) - 1)]
+                        - lastSlice[(int) (pointer % (dimensions[0] * dimensions[1]))]);
+                hor_edges[(int) (pointer - 1 - Math.floor((pointer % (dimensions[0] * dimensions[1])) / dimensions[0])
+                        - dimensions[1] * Math.floor(pointer / (dimensions[0] * dimensions[1])))] = new Edge<T, L>(
+                                gPixelsT[pointer - 1], gPixelsT[pointer], normal_weight);
+                edges.add(hor_edges[(int) (pointer - 1
+                        - Math.floor((pointer % (dimensions[0] * dimensions[1])) / dimensions[0])
+                        - dimensions[1] * Math.floor(pointer / (dimensions[0] * dimensions[1])))]);
             }
         }
 

@@ -3,19 +3,15 @@ package net.imagej.ops.labeling.watershed;
 import net.imglib2.type.numeric.RealType;
 
 public class Pixel<T extends RealType<T>, L extends Comparable<L>> {
-    private final int x;
-    private final int y;
-    private final int z;
+    private final long pointer;
     L label;
     int Rnk;
     Pixel<T, L> Fth = this;
     int indic_VP;
     protected static long[] dimensions;
 
-    Pixel(int x, int y, int z, L label) {
-        this.x = x;
-        this.y = y;
-        this.z = z;
+    Pixel(long pointer, L label) {
+        this.pointer = pointer;
         this.label = label;
     }
 
@@ -27,18 +23,18 @@ public class Pixel<T extends RealType<T>, L extends Comparable<L>> {
     }
 
     int getX() {
-        return x;
+        return (int) (pointer % dimensions[0]);
     }
 
     int getY() {
-        return y;
+        return (int) Math.floorDiv((pointer % (dimensions[0] * dimensions[1])), dimensions[1]);
     }
 
     int getZ() {
-        return z;
+        return (int) Math.floorDiv(pointer, (dimensions[0] * dimensions[1]));
     }
 
     int getPointer() {
-        return (int) (dimensions[0] * dimensions[1] * z + dimensions[0] * y + x);
+        return (int) pointer;
     }
 }
