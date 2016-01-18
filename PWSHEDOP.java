@@ -143,105 +143,117 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
         for (Edge<T, L> e : edges) {
             if (!e.isVertical()) {
                 if (!e.isDepth()) {
-                    if (e.p1.getY() > 0) {
-                        e.neighbors[0] = ver_edges[toPointer(new int[] { e.p2.getX(), e.p1.getY() - 1, e.p1.getZ() },
-                                ver_edges_dims)];
-                        e.neighbors[1] = ver_edges[toPointer(new int[] { e.p1.getX(), e.p1.getY() - 1, e.p1.getZ() },
-                                ver_edges_dims)];
+                    int X1 = e.p1.getX();
+                    int X2 = e.p2.getX();
+                    int Y = e.p1.getY();
+                    int Z = e.p1.getZ();
+                    if (Y > 0) {
+                        e.neighbors[0] = ver_edges[(int) (e.p2.getPointer() - dimensions[0]
+                                - Math.floorDiv(e.p2.getPointer(), dimensions[0] * dimensions[1]) * dimensions[0])];
+                        e.neighbors[1] = ver_edges[(int) (e.p1.getPointer() - dimensions[0]
+                                - Math.floorDiv(e.p1.getPointer(), dimensions[0] * dimensions[1]) * dimensions[0])];
                     }
-                    if (e.p1.getX() > 0) {
-                        e.neighbors[2] = hor_edges[toPointer(new int[] { e.p1.getX() - 1, e.p1.getY(), e.p1.getZ() },
-                                hor_edges_dims)];
+                    if (X1 > 0) {
+                        e.neighbors[2] = hor_edges[(int) (e.p1.getPointer() - 1
+                                - Math.floorDiv(e.p1.getPointer() % (dimensions[0] * dimensions[1]), dimensions[0])
+                                - Math.floorDiv(e.p1.getPointer(), (dimensions[0] * dimensions[1])) * dimensions[1])];
                     }
-                    if (e.p1.getY() < ver_edges_dims[1]) {
-                        e.neighbors[3] = ver_edges[toPointer(new int[] { e.p1.getX(), e.p1.getY(), e.p1.getZ() },
-                                ver_edges_dims)];
-                        e.neighbors[4] = ver_edges[toPointer(new int[] { e.p2.getX(), e.p1.getY(), e.p1.getZ() },
-                                ver_edges_dims)];
+                    if (Y < ver_edges_dims[1]) {
+                        e.neighbors[3] = ver_edges[(int) (e.p1.getPointer()
+                                - dimensions[0] * Math.floorDiv(e.p1.getPointer(), dimensions[0] * dimensions[1]))];
+                        e.neighbors[4] = ver_edges[(int) (e.p2.getPointer()
+                                - dimensions[0] * Math.floorDiv(e.p2.getPointer(), dimensions[0] * dimensions[1]))];
                     }
-                    if (e.p2.getX() < hor_edges_dims[0]) {
-                        e.neighbors[5] = hor_edges[toPointer(new int[] { e.p2.getX(), e.p1.getY(), e.p1.getZ() },
-                                hor_edges_dims)];
+                    if (X2 < hor_edges_dims[0]) {
+                        e.neighbors[5] = hor_edges[(int) (e.p2.getPointer()
+                                - Math.floorDiv(e.p2.getPointer() % (dimensions[0] * dimensions[1]), dimensions[0])
+                                - Math.floorDiv(e.p2.getPointer(), (dimensions[0] * dimensions[1])) * dimensions[1])];
                     }
-                    if (e.p1.getZ() > 0) {
-                        e.neighbors[6] = dep_edges[toPointer(new int[] { e.p1.getX(), e.p1.getY(), e.p1.getZ() - 1 },
-                                dep_edges_dims)];
-                        e.neighbors[7] = dep_edges[toPointer(new int[] { e.p2.getX(), e.p2.getY(), e.p2.getZ() - 1 },
-                                dep_edges_dims)];
+                    if (Z > 0) {
+                        e.neighbors[6] = dep_edges[(int) (e.p1.getPointer() - (dimensions[0] * dimensions[1]))];
+                        e.neighbors[7] = dep_edges[(int) (e.p2.getPointer() - (dimensions[0] * dimensions[1]))];
                     }
-                    if (e.p1.getZ() < dep_edges_dims[2]) {
-                        e.neighbors[8] = dep_edges[toPointer(new int[] { e.p1.getX(), e.p1.getY(), e.p1.getZ() },
-                                dep_edges_dims)];
-                        e.neighbors[9] = dep_edges[toPointer(new int[] { e.p2.getX(), e.p2.getY(), e.p2.getZ() },
-                                dep_edges_dims)];
+                    if (Z < dep_edges_dims[2]) {
+                        e.neighbors[8] = dep_edges[e.p1.getPointer()];
+                        e.neighbors[9] = dep_edges[e.p2.getPointer()];
                     }
                 } else {
+                    int X = e.p1.getX();
+                    int Y = e.p1.getY();
+                    int Z1 = e.p1.getZ();
+                    int Z2 = e.p2.getZ();
                     // e.isDepth()
-                    if (e.p1.getX() > 0) {
-                        e.neighbors[0] = hor_edges[toPointer(new int[] { e.p1.getX() - 1, e.p1.getY(), e.p1.getZ() },
-                                hor_edges_dims)];
-                        e.neighbors[1] = hor_edges[toPointer(new int[] { e.p2.getX() - 1, e.p2.getY(), e.p2.getZ() },
-                                hor_edges_dims)];
+                    if (X > 0) {
+                        e.neighbors[0] = hor_edges[(int) (e.p1.getPointer() - 1
+                                - Math.floorDiv(e.p1.getPointer() % (dimensions[0] * dimensions[1]), dimensions[0])
+                                - Math.floorDiv(e.p1.getPointer(), (dimensions[0] * dimensions[1])) * dimensions[1])];
+                        e.neighbors[1] = hor_edges[(int) (e.p2.getPointer() - 1
+                                - Math.floorDiv(e.p2.getPointer() % (dimensions[0] * dimensions[1]), dimensions[0])
+                                - Math.floorDiv(e.p2.getPointer(), (dimensions[0] * dimensions[1])) * dimensions[1])];
                     }
-                    if (e.p1.getY() > 0) {
-                        e.neighbors[2] = ver_edges[toPointer(new int[] { e.p1.getX(), e.p1.getY() - 1, e.p1.getZ() },
-                                ver_edges_dims)];
-                        e.neighbors[3] = ver_edges[toPointer(new int[] { e.p2.getX(), e.p2.getY() - 1, e.p2.getZ() },
-                                ver_edges_dims)];
+                    if (Y > 0) {
+                        e.neighbors[2] = ver_edges[(int) (e.p1.getPointer() - dimensions[0]
+                                - Math.floorDiv(e.p1.getPointer(), dimensions[0] * dimensions[1]) * dimensions[0])];
+                        e.neighbors[3] = ver_edges[(int) (e.p2.getPointer() - dimensions[0]
+                                - Math.floorDiv(e.p2.getPointer(), dimensions[0] * dimensions[1]) * dimensions[0])];
                     }
-                    if (e.p1.getZ() > 0) {
-                        e.neighbors[4] = dep_edges[toPointer(new int[] { e.p1.getX(), e.p1.getY(), e.p1.getZ() - 1 },
-                                dep_edges_dims)];
+                    if (Z1 > 0) {
+                        e.neighbors[4] = dep_edges[(int) (e.p1.getPointer() - (dimensions[0] * dimensions[1]))];
                     }
-                    if (e.p1.getX() < hor_edges_dims[0]) {
-                        e.neighbors[5] = hor_edges[toPointer(new int[] { e.p1.getX(), e.p1.getY(), e.p1.getZ() },
-                                hor_edges_dims)];
-                        e.neighbors[6] = hor_edges[toPointer(new int[] { e.p2.getX(), e.p2.getY(), e.p2.getZ() },
-                                hor_edges_dims)];
+                    if (X < hor_edges_dims[0]) {
+                        e.neighbors[5] = hor_edges[(int) (e.p1.getPointer()
+                                - Math.floorDiv(e.p1.getPointer() % (dimensions[0] * dimensions[1]), dimensions[0])
+                                - Math.floorDiv(e.p1.getPointer(), (dimensions[0] * dimensions[1])) * dimensions[1])];
+                        e.neighbors[6] = hor_edges[(int) (e.p2.getPointer()
+                                - Math.floorDiv(e.p2.getPointer() % (dimensions[0] * dimensions[1]), dimensions[0])
+                                - Math.floorDiv(e.p2.getPointer(), (dimensions[0] * dimensions[1])) * dimensions[1])];
                     }
-                    if (e.p2.getY() < ver_edges_dims[1]) {
-                        e.neighbors[7] = ver_edges[toPointer(new int[] { e.p1.getX(), e.p1.getY(), e.p1.getZ() },
-                                ver_edges_dims)];
-                        e.neighbors[8] = ver_edges[toPointer(new int[] { e.p2.getX(), e.p2.getY(), e.p2.getZ() },
-                                ver_edges_dims)];
+                    if (Y < ver_edges_dims[1]) {
+                        e.neighbors[7] = ver_edges[(int) (e.p1.getPointer()
+                                - dimensions[0] * Math.floorDiv(e.p1.getPointer(), dimensions[0] * dimensions[1]))];
+                        e.neighbors[8] = ver_edges[(int) (e.p2.getPointer()
+                                - dimensions[0] * Math.floorDiv(e.p2.getPointer(), dimensions[0] * dimensions[1]))];
                     }
-                    if (e.p2.getZ() < dep_edges_dims[2]) {
-                        e.neighbors[9] = dep_edges[toPointer(new int[] { e.p2.getX(), e.p2.getY(), e.p2.getZ() },
-                                dep_edges_dims)];
+                    if (Z2 < dep_edges_dims[2]) {
+                        e.neighbors[9] = dep_edges[e.p2.getPointer()];
                     }
                 }
             } else { // e.isVertical()
-                if (e.p1.getY() > 0) {
-                    e.neighbors[0] = ver_edges[toPointer(new int[] { e.p1.getX(), e.p1.getY() - 1, e.p1.getZ() },
-                            ver_edges_dims)];
+                int X = e.p1.getX();
+                int Y1 = e.p1.getY();
+                int Y2 = e.p2.getY();
+                int Z = e.p1.getZ();
+                if (Y1 > 0) {
+                    e.neighbors[0] = ver_edges[(int) (e.p1.getPointer() - dimensions[0]
+                            - Math.floorDiv(e.p1.getPointer(), dimensions[0] * dimensions[1]) * dimensions[0])];
                 }
-                if (e.p1.getX() > 0) {
-                    e.neighbors[1] = hor_edges[toPointer(new int[] { e.p1.getX() - 1, e.p1.getY(), e.p1.getZ() },
-                            hor_edges_dims)];
-                    e.neighbors[2] = hor_edges[toPointer(new int[] { e.p2.getX() - 1, e.p2.getY(), e.p1.getZ() },
-                            hor_edges_dims)];
+                if (X > 0) {
+                    e.neighbors[1] = hor_edges[(int) (e.p1.getPointer() - 1
+                            - Math.floorDiv(e.p1.getPointer() % (dimensions[0] * dimensions[1]), dimensions[0])
+                            - Math.floorDiv(e.p1.getPointer(), (dimensions[0] * dimensions[1])) * dimensions[1])];
+                    e.neighbors[2] = hor_edges[(int) (e.p2.getPointer() - 1
+                            - Math.floorDiv(e.p2.getPointer() % (dimensions[0] * dimensions[1]), dimensions[0])
+                            - Math.floorDiv(e.p2.getPointer(), (dimensions[0] * dimensions[1])) * dimensions[1])];
                 }
-                if (e.p2.getY() < ver_edges_dims[1]) {
-                    e.neighbors[3] = ver_edges[toPointer(new int[] { e.p2.getX(), e.p2.getY(), e.p1.getZ() },
-                            ver_edges_dims)];
+                if (Y2 < ver_edges_dims[1]) {
+                    e.neighbors[3] = ver_edges[(int) (e.p2.getPointer()
+                            - dimensions[0] * Math.floorDiv(e.p2.getPointer(), dimensions[0] * dimensions[1]))];
                 }
-                if (e.p1.getX() < hor_edges_dims[0]) {
-                    e.neighbors[4] = hor_edges[toPointer(new int[] { e.p2.getX(), e.p2.getY(), e.p1.getZ() },
-                            hor_edges_dims)];
-                    e.neighbors[5] = hor_edges[toPointer(new int[] { e.p1.getX(), e.p1.getY(), e.p1.getZ() },
-                            hor_edges_dims)];
+                if (X < hor_edges_dims[0]) {
+                    e.neighbors[4] = hor_edges[(int) (e.p2.getPointer()
+                            - Math.floorDiv(e.p2.getPointer() % (dimensions[0] * dimensions[1]), dimensions[0])
+                            - Math.floorDiv(e.p2.getPointer(), (dimensions[0] * dimensions[1])) * dimensions[1])];
+                    e.neighbors[5] = hor_edges[(int) (e.p1.getPointer()
+                            - Math.floorDiv(e.p1.getPointer() % (dimensions[0] * dimensions[1]), dimensions[0])
+                            - Math.floorDiv(e.p1.getPointer(), (dimensions[0] * dimensions[1])) * dimensions[1])];
                 }
-                if (e.p1.getZ() > 0) {
-                    e.neighbors[6] = dep_edges[toPointer(new int[] { e.p1.getX(), e.p1.getY(), e.p1.getZ() - 1 },
-                            dep_edges_dims)];
-                    e.neighbors[7] = dep_edges[toPointer(new int[] { e.p2.getX(), e.p2.getY(), e.p2.getZ() - 1 },
-                            dep_edges_dims)];
+                if (Z > 0) {
+                    e.neighbors[6] = dep_edges[(int) (e.p1.getPointer() - (dimensions[0] * dimensions[1]))];
+                    e.neighbors[7] = dep_edges[(int) (e.p2.getPointer() - (dimensions[0] * dimensions[1]))];
                 }
-                if (e.p1.getZ() < dep_edges_dims[2]) {
-                    e.neighbors[8] = dep_edges[toPointer(new int[] { e.p1.getX(), e.p1.getY(), e.p1.getZ() },
-                            dep_edges_dims)];
-                    e.neighbors[9] = dep_edges[toPointer(new int[] { e.p2.getX(), e.p2.getY(), e.p2.getZ() },
-                            dep_edges_dims)];
+                if (Z < dep_edges_dims[2]) {
+                    e.neighbors[8] = dep_edges[e.p1.getPointer()];
+                    e.neighbors[9] = dep_edges[e.p2.getPointer()];
                 }
             }
         }
