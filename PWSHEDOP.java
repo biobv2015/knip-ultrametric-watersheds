@@ -39,7 +39,7 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
 
     @Override
     public void run() {
-        
+
         checkInput();
 
         long dimensions[] = new long[image.numDimensions()];
@@ -61,14 +61,18 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
          * input labeling. "labels" is the List of the labels, while "seedsL"
          * stores the seeds. Create the edges.
          */
-        Pixel<T, L>[][][] gPixelsT = new Pixel[(int) dimensions[0]][(int) dimensions[1]][(int) dimensions[2]];
+        Pixel<T, L>[][][] gPixelsT = new Pixel[(int) dimensions[0]][(int) dimensions[1]][dimensions.length > 2
+                ? (int) dimensions[2] : 1];
         ArrayList<Edge<T, L>> edges = new ArrayList<>();
-        Edge<T, L>[][][] hor_edges = new Edge[(int) dimensions[0] - 1][(int) dimensions[1]][(int) dimensions[2]];
-        Edge<T, L>[][][] ver_edges = new Edge[(int) dimensions[0]][(int) dimensions[1] - 1][(int) dimensions[2]];
-        Edge<T, L>[][][] dep_edges = new Edge[(int) dimensions[0]][(int) dimensions[1]][(int) dimensions[2] - 1];
+        Edge<T, L>[][][] hor_edges = new Edge[(int) dimensions[0] - 1][(int) dimensions[1]][dimensions.length > 2
+                ? (int) dimensions[2] : 1];
+        Edge<T, L>[][][] ver_edges = new Edge[(int) dimensions[0]][(int) dimensions[1] - 1][dimensions.length > 2
+                ? (int) dimensions[2] : 1];
+        Edge<T, L>[][][] dep_edges = new Edge[(int) dimensions[0]][(int) dimensions[1]][(dimensions.length > 2
+                ? (int) dimensions[2] : 1) - 1];
         final Cursor<T> imageCursor = Views.iterable(image).localizingCursor();
         double[][] lastSlice = new double[(int) dimensions[0]][(int) dimensions[1]];
-        for (int k = 0; k < dimensions[2]; k++) {
+        for (int k = 0; k < (dimensions.length > 2 ? (int) dimensions[2] : 1); k++) {
             for (int j = 0; j < dimensions[1]; j++) {
                 for (int i = 0; i < dimensions[0]; i++) {
                     if (!seedCursor.hasNext()) {
@@ -267,7 +271,7 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
             }
         }
 
-        proba = new float[labels.size() - 1][(int) (dimensions[0] * dimensions[1] * dimensions[2])];
+        proba = new float[labels.size() - 1][(int) (dimensions[0] * dimensions[1] * (dimensions.length > 2 ? (int) dimensions[2] : 1))];
         for (float[] labelProb : proba) {
             Arrays.fill(labelProb, -1);
         }
@@ -305,7 +309,7 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
         }
 
         Cursor<LabelingType<L>> outCursor = Views.iterable(output).localizingCursor();
-        for (int j = 0; j < dimensions[0] * dimensions[1] * dimensions[2]; j++) {
+        for (int j = 0; j < dimensions[0] * dimensions[1] * (dimensions.length > 2 ? (int) dimensions[2] : 1); j++) {
             outCursor.fwd();
             double maxi = 0;
             int argmax = 0;
