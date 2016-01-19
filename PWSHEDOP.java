@@ -70,22 +70,21 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
         Pixel<T, L>[] gPixelsT = new Pixel[(int) numOfPixels];
         ArrayList<Edge<T, L>> edges = new ArrayList<>();
 
-        long numOfHorEdges = numOfPixels - numOfPixels / dimensions[0];
+        long[] edgeDimesions = new long[dimensions.length];
+        for (int i = 0; i < edgeDimesions.length; i++) {
+            edgeDimesions[i] = numOfPixels - numOfPixels / dimensions[i];
+        }
 
-        long numOfVerEdges = numOfPixels - numOfPixels / dimensions[1];
-
-        long numOfDepEdges = numOfPixels - numOfPixels / (dimensions.length > 2 ? (int) dimensions[2] : 1);
-
-        Edge<T, L>[] allEdges = new Edge[(int) (numOfHorEdges + numOfVerEdges + numOfDepEdges)];
+        long numOfEdges = 0;
+        for (long d : edgeDimesions) {
+            numOfEdges += d;
+        }
+        Edge<T, L>[] allEdges = new Edge[(int) numOfEdges];
 
         final Cursor<T> imageCursor = Views.iterable(image).localizingCursor();
         double[] lastSlice = new double[(int) (dimensions[0] * dimensions[1])];
 
         for (int pointer = 0; pointer < gPixelsT.length; pointer++) {
-
-            if (!seedCursor.hasNext()) {
-                throw new RuntimeErrorException(null, "seedCursor error");
-            }
             LabelingType<L> labeling = seedCursor.next();
             if (labeling.size() != 0) {
                 L label = labeling.iterator().next();
@@ -97,34 +96,34 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
             } else {
                 gPixelsT[pointer] = new Pixel<T, L>(pointer, null);
             }
-
-            if (!imageCursor.hasNext()) {
-                throw new RuntimeErrorException(null, "imageCursor error");
-            }
             double currentPixel = imageCursor.next().getRealDouble();
             if (pointer % (dimensions[0] * dimensions[1]) >= dimensions[0]) {
                 double normal_weight = max - Math.abs(
                         lastSlice[(int) (pointer % (dimensions[0] * dimensions[1]) - dimensions[0])] - currentPixel);
-                allEdges[(int) (numOfHorEdges + pointer
+                // Vertical Edge
+                allEdges[(int) (edgeDimesions[0] + pointer
                         - dimensions[0]
                                 * (1 + Math.floor(pointer / (dimensions[0] * dimensions[1]))))] = new Edge<T, L>(
                                         gPixelsT[(int) (pointer - dimensions[0])], gPixelsT[pointer], normal_weight);
-                edges.add(allEdges[(int) (numOfHorEdges + pointer
+                edges.add(allEdges[(int) (edgeDimesions[0] + pointer
                         - dimensions[0] * (1 + Math.floor(pointer / (dimensions[0] * dimensions[1]))))]);
             }
             if (pointer >= (dimensions[0] * dimensions[1])) {
                 double normal_weight = max
                         - Math.abs(lastSlice[(int) (pointer % (dimensions[0] * dimensions[1]))] - currentPixel);
-                allEdges[(int) (numOfHorEdges + numOfVerEdges + pointer
+                // depth edge
+                allEdges[(int) (edgeDimesions[0] + edgeDimesions[1] + pointer
                         - (dimensions[0] * dimensions[1]))] = new Edge<T, L>(
                                 gPixelsT[(int) (pointer - (dimensions[0] * dimensions[1]))], gPixelsT[pointer],
                                 normal_weight);
-                edges.add(allEdges[(int) (numOfHorEdges + numOfVerEdges + pointer - (dimensions[0] * dimensions[1]))]);
+                edges.add(allEdges[(int) (edgeDimesions[0] + edgeDimesions[1] + pointer
+                        - (dimensions[0] * dimensions[1]))]);
             }
             lastSlice[(int) (pointer % (dimensions[0] * dimensions[1]))] = currentPixel;
             if (pointer % dimensions[0] > 0) {
                 double normal_weight = max - Math.abs(lastSlice[(int) (pointer % (dimensions[0] * dimensions[1]) - 1)]
                         - lastSlice[(int) (pointer % (dimensions[0] * dimensions[1]))]);
+                // horizontal edge
                 allEdges[(int) (pointer - 1 - Math.floor((pointer % (dimensions[0] * dimensions[1])) / dimensions[0])
                         - dimensions[1] * Math.floor(pointer / (dimensions[0] * dimensions[1])))] = new Edge<T, L>(
                                 gPixelsT[pointer - 1], gPixelsT[pointer], normal_weight);
@@ -141,10 +140,10 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
             long z1 = Math.floorDiv(e.p1.getPointer(), (dimensions[0] * dimensions[1]));
             if (!e.isVertical()) {
                 if (!e.isDepth()) {
-                    if (Math.floorDiv((e.p1.getPointer() % (dimensions[0] * dimensions[1])), dimensions[1]) > 0) {
-                        e.neighbors[0] = allEdges[(int) (numOfHorEdges + e.p2.getPointer() - dimensions[0]
+                    if (Math.floorDiv((e.p1.getPointer() % (dimensions[0] * dimensions[1])), dimensions[0]) > 0) {
+                        e.neighbors[0] = allEdges[(int) (edgeDimesions[0] + e.p2.getPointer() - dimensions[0]
                                 - Math.floorDiv(e.p2.getPointer(), (dimensions[0] * dimensions[1])) * dimensions[0])];
-                        e.neighbors[1] = allEdges[(int) (numOfHorEdges + e.p1.getPointer() - dimensions[0]
+                        e.neighbors[1] = allEdges[(int) (edgeDimesions[0] + e.p1.getPointer() - dimensions[0]
                                 - Math.floorDiv(e.p1.getPointer(), (dimensions[0] * dimensions[1])) * dimensions[0])];
                     }
                     if (e.p1.getPointer() % dimensions[0] > 0) {
@@ -153,10 +152,10 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                                 - z1 * dimensions[1])];
                     }
                     if (Math.floorDiv((e.p1.getPointer() % (dimensions[0] * dimensions[1])),
-                            dimensions[1]) < dimensions[1] - 1) {
-                        e.neighbors[3] = allEdges[(int) (numOfHorEdges + e.p1.getPointer()
+                            dimensions[0]) < dimensions[1] - 1) {
+                        e.neighbors[3] = allEdges[(int) (edgeDimesions[0] + e.p1.getPointer()
                                 - dimensions[0] * Math.floorDiv(e.p1.getPointer(), (dimensions[0] * dimensions[1])))];
-                        e.neighbors[4] = allEdges[(int) (numOfHorEdges + e.p2.getPointer()
+                        e.neighbors[4] = allEdges[(int) (edgeDimesions[0] + e.p2.getPointer()
                                 - dimensions[0] * Math.floorDiv(e.p2.getPointer(), (dimensions[0] * dimensions[1])))];
                     }
                     if (e.p2.getPointer() % dimensions[0] < dimensions[0] - 1) {
@@ -165,14 +164,14 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                                 - Math.floorDiv(e.p2.getPointer(), (dimensions[0] * dimensions[1])) * dimensions[1])];
                     }
                     if (z1 > 0) {
-                        e.neighbors[6] = allEdges[(int) (numOfHorEdges + numOfVerEdges + e.p1.getPointer()
+                        e.neighbors[6] = allEdges[(int) (edgeDimesions[0] + edgeDimesions[1] + e.p1.getPointer()
                                 - (dimensions[0] * dimensions[1]))];
-                        e.neighbors[7] = allEdges[(int) (numOfHorEdges + numOfVerEdges + e.p2.getPointer()
+                        e.neighbors[7] = allEdges[(int) (edgeDimesions[0] + edgeDimesions[1] + e.p2.getPointer()
                                 - (dimensions[0] * dimensions[1]))];
                     }
                     if (z1 < (dimensions.length > 2 ? (int) dimensions[2] : 1) - 1) {
-                        e.neighbors[8] = allEdges[(int) (numOfHorEdges + numOfVerEdges + e.p1.getPointer())];
-                        e.neighbors[9] = allEdges[(int) (numOfHorEdges + numOfVerEdges + e.p2.getPointer())];
+                        e.neighbors[8] = allEdges[(int) (edgeDimesions[0] + edgeDimesions[1] + e.p1.getPointer())];
+                        e.neighbors[9] = allEdges[(int) (edgeDimesions[0] + edgeDimesions[1] + e.p2.getPointer())];
                     }
                 } else {
                     // e.isDepth()
@@ -184,14 +183,14 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                                 - Math.floorDiv(e.p2.getPointer() % (dimensions[0] * dimensions[1]), dimensions[0])
                                 - Math.floorDiv(e.p2.getPointer(), (dimensions[0] * dimensions[1])) * dimensions[1])];
                     }
-                    if (Math.floorDiv((e.p1.getPointer() % (dimensions[0] * dimensions[1])), dimensions[1]) > 0) {
-                        e.neighbors[2] = allEdges[(int) (numOfHorEdges + e.p1.getPointer() - dimensions[0]
+                    if (Math.floorDiv((e.p1.getPointer() % (dimensions[0] * dimensions[1])), dimensions[0]) > 0) {
+                        e.neighbors[2] = allEdges[(int) (edgeDimesions[0] + e.p1.getPointer() - dimensions[0]
                                 - Math.floorDiv(e.p1.getPointer(), (dimensions[0] * dimensions[1])) * dimensions[0])];
-                        e.neighbors[3] = allEdges[(int) (numOfHorEdges + e.p2.getPointer() - dimensions[0]
+                        e.neighbors[3] = allEdges[(int) (edgeDimesions[0] + e.p2.getPointer() - dimensions[0]
                                 - Math.floorDiv(e.p2.getPointer(), (dimensions[0] * dimensions[1])) * dimensions[0])];
                     }
                     if (z1 > 0) {
-                        e.neighbors[4] = allEdges[(int) (numOfHorEdges + numOfVerEdges + e.p1.getPointer()
+                        e.neighbors[4] = allEdges[(int) (edgeDimesions[0] + edgeDimesions[1] + e.p1.getPointer()
                                 - (dimensions[0] * dimensions[1]))];
                     }
                     if (e.p1.getPointer() % dimensions[0] < dimensions[0] - 1) {
@@ -203,20 +202,20 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                                 - Math.floorDiv(e.p2.getPointer(), (dimensions[0] * dimensions[1])) * dimensions[1])];
                     }
                     if (Math.floorDiv((e.p1.getPointer() % (dimensions[0] * dimensions[1])),
-                            dimensions[1]) < dimensions[1] - 1) {
-                        e.neighbors[7] = allEdges[(int) (numOfHorEdges + e.p1.getPointer()
+                            dimensions[0]) < dimensions[1] - 1) {
+                        e.neighbors[7] = allEdges[(int) (edgeDimesions[0] + e.p1.getPointer()
                                 - dimensions[0] * Math.floorDiv(e.p1.getPointer(), (dimensions[0] * dimensions[1])))];
-                        e.neighbors[8] = allEdges[(int) (numOfHorEdges + e.p2.getPointer()
+                        e.neighbors[8] = allEdges[(int) (edgeDimesions[0] + e.p2.getPointer()
                                 - dimensions[0] * Math.floorDiv(e.p2.getPointer(), (dimensions[0] * dimensions[1])))];
                     }
                     if (Math.floorDiv(e.p2.getPointer(),
                             (dimensions[0] * dimensions[1])) < (dimensions.length > 2 ? (int) dimensions[2] : 1) - 1) {
-                        e.neighbors[9] = allEdges[(int) (numOfHorEdges + numOfVerEdges + e.p2.getPointer())];
+                        e.neighbors[9] = allEdges[(int) (edgeDimesions[0] + edgeDimesions[1] + e.p2.getPointer())];
                     }
                 }
             } else { // e.isVertical()
-                if (Math.floorDiv((e.p1.getPointer() % (dimensions[0] * dimensions[1])), dimensions[1]) > 0) {
-                    e.neighbors[0] = allEdges[(int) (numOfHorEdges + e.p1.getPointer() - dimensions[0]
+                if (Math.floorDiv((e.p1.getPointer() % (dimensions[0] * dimensions[1])), dimensions[0]) > 0) {
+                    e.neighbors[0] = allEdges[(int) (edgeDimesions[0] + e.p1.getPointer() - dimensions[0]
                             - Math.floorDiv(e.p1.getPointer(), (dimensions[0] * dimensions[1])) * dimensions[0])];
                 }
                 if (e.p1.getPointer() % dimensions[0] > 0) {
@@ -227,9 +226,9 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                             - Math.floorDiv(e.p2.getPointer() % (dimensions[0] * dimensions[1]), dimensions[0])
                             - Math.floorDiv(e.p2.getPointer(), (dimensions[0] * dimensions[1])) * dimensions[1])];
                 }
-                if (Math.floorDiv((e.p2.getPointer() % (dimensions[0] * dimensions[1])), dimensions[1]) < dimensions[1]
+                if (Math.floorDiv((e.p2.getPointer() % (dimensions[0] * dimensions[1])), dimensions[0]) < dimensions[1]
                         - 1) {
-                    e.neighbors[3] = allEdges[(int) (numOfHorEdges + e.p2.getPointer()
+                    e.neighbors[3] = allEdges[(int) (edgeDimesions[0] + e.p2.getPointer()
                             - dimensions[0] * Math.floorDiv(e.p2.getPointer(), (dimensions[0] * dimensions[1])))];
                 }
                 if (e.p1.getPointer() % dimensions[0] < dimensions[0] - 1) {
@@ -241,14 +240,14 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                             - z1 * dimensions[1])];
                 }
                 if (z1 > 0) {
-                    e.neighbors[6] = allEdges[(int) (numOfHorEdges + numOfVerEdges + e.p1.getPointer()
+                    e.neighbors[6] = allEdges[(int) (edgeDimesions[0] + edgeDimesions[1] + e.p1.getPointer()
                             - (dimensions[0] * dimensions[1]))];
-                    e.neighbors[7] = allEdges[(int) (numOfHorEdges + numOfVerEdges + e.p2.getPointer()
+                    e.neighbors[7] = allEdges[(int) (edgeDimesions[0] + edgeDimesions[1] + e.p2.getPointer()
                             - (dimensions[0] * dimensions[1]))];
                 }
                 if (z1 < (dimensions.length > 2 ? (int) dimensions[2] : 1) - 1) {
-                    e.neighbors[8] = allEdges[(int) (numOfHorEdges + numOfVerEdges + e.p1.getPointer())];
-                    e.neighbors[9] = allEdges[(int) (numOfHorEdges + numOfVerEdges + e.p2.getPointer())];
+                    e.neighbors[8] = allEdges[(int) (edgeDimesions[0] + edgeDimesions[1] + e.p1.getPointer())];
+                    e.neighbors[9] = allEdges[(int) (edgeDimesions[0] + edgeDimesions[1] + e.p2.getPointer())];
                 }
             }
         }
@@ -259,6 +258,7 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
          */
         for (Pixel<T, L> p : seedsL) {
             if (p.getPointer() % dimensions[0] < dimensions[0] - 1) {
+                // to the right
                 allEdges[(int) (p.getPointer()
                         - Math.floorDiv(p.getPointer() % (dimensions[0] * dimensions[1]), dimensions[0])
                         - Math.floorDiv(p.getPointer(), (dimensions[0] * dimensions[1]))
@@ -267,19 +267,23 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                                         - Math.floorDiv(p.getPointer(), (dimensions[0] * dimensions[1]))
                                                 * dimensions[1])].normal_weight;
             }
-            if (Math.floorDiv((p.getPointer() % (dimensions[0] * dimensions[1])), dimensions[1]) < dimensions[1] - 1) {
-                allEdges[(int) (numOfHorEdges + p.getPointer()
+            if (Math.floorDiv((p.getPointer() % (dimensions[0] * dimensions[1])), dimensions[0]) < dimensions[1] - 1) {
+                // to the bottom
+                allEdges[(int) (edgeDimesions[0] + p.getPointer()
                         - dimensions[0] * Math.floorDiv(p.getPointer(),
-                                (dimensions[0] * dimensions[1])))].weight = allEdges[(int) (numOfHorEdges
+                                (dimensions[0] * dimensions[1])))].weight = allEdges[(int) (edgeDimesions[0]
                                         + p.getPointer() - dimensions[0] * Math.floorDiv(p.getPointer(),
                                                 (dimensions[0] * dimensions[1])))].normal_weight;
             }
             if (Math.floorDiv(p.getPointer(),
                     (dimensions[0] * dimensions[1])) < (dimensions.length > 2 ? (int) dimensions[2] : 1) - 1) {
-                allEdges[(int) (numOfHorEdges + numOfVerEdges + p.getPointer())].weight = allEdges[(int) (numOfHorEdges
-                        + numOfVerEdges + p.getPointer())].normal_weight;
+                // to the back
+                allEdges[(int) (edgeDimesions[0] + edgeDimesions[1]
+                        + p.getPointer())].weight = allEdges[(int) (edgeDimesions[0] + edgeDimesions[1]
+                                + p.getPointer())].normal_weight;
             }
             if (p.getPointer() % dimensions[0] > 0) {
+                // to the left
                 allEdges[(int) (p.getPointer() - 1
                         - Math.floorDiv(p.getPointer() % (dimensions[0] * dimensions[1]), dimensions[0])
                         - Math.floorDiv(p.getPointer(), (dimensions[0] * dimensions[1]))
@@ -288,16 +292,18 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                                         - Math.floorDiv(p.getPointer(), (dimensions[0] * dimensions[1]))
                                                 * dimensions[1])].normal_weight;
             }
-            if (Math.floorDiv((p.getPointer() % (dimensions[0] * dimensions[1])), dimensions[1]) > 0) {
-                allEdges[(int) (numOfHorEdges + p.getPointer() - dimensions[0]
+            if (Math.floorDiv((p.getPointer() % (dimensions[0] * dimensions[1])), dimensions[0]) > 0) {
+                // to the top
+                allEdges[(int) (edgeDimesions[0] + p.getPointer() - dimensions[0]
                         - dimensions[0] * Math.floorDiv(p.getPointer(),
-                                (dimensions[0] * dimensions[1])))].weight = allEdges[(int) (numOfHorEdges
+                                (dimensions[0] * dimensions[1])))].weight = allEdges[(int) (edgeDimesions[0]
                                         + p.getPointer() - dimensions[0] - dimensions[0] * Math.floorDiv(p.getPointer(),
                                                 (dimensions[0] * dimensions[1])))].normal_weight;
             }
             if (Math.floorDiv(p.getPointer(), (dimensions[0] * dimensions[1])) > 0) {
-                allEdges[(int) (numOfHorEdges + numOfVerEdges + p.getPointer()
-                        - (dimensions[0] * dimensions[1]))].weight = allEdges[(int) (numOfHorEdges + numOfVerEdges
+                // to the front
+                allEdges[(int) (edgeDimesions[0] + edgeDimesions[1] + p.getPointer()
+                        - (dimensions[0] * dimensions[1]))].weight = allEdges[(int) (edgeDimesions[0] + edgeDimesions[1]
                                 + p.getPointer() - (dimensions[0] * dimensions[1]))].normal_weight;
             }
         }
