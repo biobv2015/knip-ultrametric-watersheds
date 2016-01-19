@@ -14,6 +14,7 @@ public class Edge<T extends RealType<T>, L extends Comparable<L>> implements Com
     boolean Mrk;
 
     static boolean weights;
+    static boolean ascending;
 
     Edge(Pixel<T, L> p1, Pixel<T, L> p2, double normal_weight) {
         neighbors = new Edge[10];
@@ -31,22 +32,28 @@ public class Edge<T extends RealType<T>, L extends Comparable<L>> implements Com
 
     @Override
     public int compareTo(Edge<T, L> e) {
+        int result = 0;
         if (weights) {
             if (weight < e.weight) {
-                return -1;
+                result = -1;
             } else if (weight > e.weight) {
-                return 1;
+                result = 1;
             } else {
-                return 0;
+                result = 0;
+            }
+        } else {
+            if (normal_weight < e.normal_weight) {
+                result = -1;
+            } else if (normal_weight > e.normal_weight) {
+                result = 1;
+            } else {
+                result = 0;
             }
         }
-        if (normal_weight < e.normal_weight) {
-            return -1;
-        } else if (normal_weight > e.normal_weight) {
-            return 1;
-        } else {
-            return 0;
+        if (!ascending) {
+            result *= -1;
         }
+        return result;
     }
 
     boolean isVertical() {

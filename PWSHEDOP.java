@@ -303,8 +303,8 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
         }
 
         Edge.weights = false;
+        Edge.ascending = false;
         Collections.sort(edges);
-        Collections.reverse(edges);
         // heaviest first
         for (Edge<T, L> e : edges) {
             // go through the neighbors
@@ -360,8 +360,8 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
         }
 
         Edge.weights = true;
+        Edge.ascending = false;
         Collections.sort(edges);
-        Collections.reverse(edges);
 
         for (Edge<T, L> e_max : edges) {
             if (e_max.visited) {
@@ -465,8 +465,8 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                 // 5. Sort the edges of the plateau according to their
                 // normal weight
                 Edge.weights = false;
+                Edge.ascending = false;
                 Collections.sort(sorted_weights);
-                Collections.reverse(sorted_weights);
 
                 // Merge nodes for edges of real max weight
                 ArrayList<Pixel<T, L>> pixelsLCP = new ArrayList<>(); // vertices
