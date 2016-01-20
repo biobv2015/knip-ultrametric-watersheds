@@ -50,7 +50,7 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
 
         final T maxVal = Views.iterable(image).firstElement().createVariable();
         maxVal.setReal(maxVal.getMaxValue());
-        double max = 1000000000;
+        double max = 100000;//0000;
 
         final Cursor<LabelingType<L>> seedCursor = Views.iterable(seeds).localizingCursor();
         ArrayList<Pixel<T, L>> seedsL = new ArrayList<>();
@@ -132,85 +132,130 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
         for (Edge<T, L> e : edges) {
             int p1 = e.p1.getPointer();
             int[] coord1 = toCoordinates(p1, dimensions);
-            long x1 = p1 % dimensions[0];
             int p2 = e.p2.getPointer();
-            long z2 = Math.floorDiv(p2, (dimensions[0] * dimensions[1]));
-            long y2 = Math.floorDiv((p2 % (dimensions[0] * dimensions[1])), dimensions[0]);
-            long x2 = p2 % dimensions[0];
-            if (!e.isVertical()) {
-                if (!e.isDepth()) {
-                    if (coord1[1] > 0) {
-                        e.neighbors[0] = allEdges[(int) (edgeOffset[1] + p2 - dimensions[0] - z2 * dimensions[0])];
-                        e.neighbors[1] = allEdges[(int) (edgeOffset[1] + p1 - dimensions[0] - coord1[2] * dimensions[0])];
+            int[] coord2 = toCoordinates(p2, dimensions);
+            int edgeNumber = 0;
+            for (int i = 0; i < dimensions.length; i++) {
+                long[] edgeDim = dimensions.clone();
+                edgeDim[i] -= 1;
+                if (coord1[i] > 0) {
+                    int[] edgeCoords = coord1.clone();
+                    edgeCoords[i] -= 1;
+                    Edge<T, L> neighbor = allEdges[(int) (edgeOffset[i] + toPointer(edgeCoords, edgeDim))];
+                    if(p1!=neighbor.p2.getPointer()){
+                        System.err.println("error");
                     }
-                    if (x1 > 0) {
-                        e.neighbors[2] = allEdges[(int) (edgeOffset[0] + p1 - 1 - coord1[1] - coord1[2] * dimensions[1])];
-                    }
-                    if (coord1[1] < dimensions[1] - 1) {
-                        e.neighbors[3] = allEdges[(int) (edgeOffset[1] + p1 - dimensions[0] * coord1[2])];
-                        e.neighbors[4] = allEdges[(int) (edgeOffset[2] + p2 - dimensions[0] * z2)];
-                    }
-                    if (x2 < dimensions[0] - 1) {
-                        e.neighbors[5] = allEdges[(int) (p2 - y2 - z2 * dimensions[1])];
-                    }
-                    if (coord1[2] > 0) {
-                        e.neighbors[6] = allEdges[(int) (edgeOffset[2] + p1 - (dimensions[0] * dimensions[1]))];
-                        e.neighbors[7] = allEdges[(int) (edgeOffset[2] + p2 - (dimensions[0] * dimensions[1]))];
-                    }
-                    if (coord1[2] < (dimensions.length > 2 ? (int) dimensions[2] : 1) - 1) {
-                        e.neighbors[8] = allEdges[(int) (edgeOffset[2] + p1)];
-                        e.neighbors[9] = allEdges[(int) (edgeOffset[2] + p2)];
-                    }
-                } else {
-                    // e.isDepth()
-                    if (x1 > 0) {
-                        e.neighbors[0] = allEdges[(int) (edgeOffset[0] + p1 - 1 - coord1[1] - coord1[2] * dimensions[1])];
-                        e.neighbors[1] = allEdges[(int) (edgeOffset[0] + p2 - 1 - y2 - z2 * dimensions[1])];
-                    }
-                    if (coord1[1] > 0) {
-                        e.neighbors[2] = allEdges[(int) (edgeOffset[1] + p1 - dimensions[0] - coord1[2] * dimensions[0])];
-                        e.neighbors[3] = allEdges[(int) (edgeOffset[1] + p2 - dimensions[0] - z2 * dimensions[0])];
-                    }
-                    if (coord1[2] > 0) {
-                        e.neighbors[4] = allEdges[(int) (edgeOffset[2] + p1 - (dimensions[0] * dimensions[1]))];
-                    }
-                    if (x1 < dimensions[0] - 1) {
-                        e.neighbors[5] = allEdges[(int) (edgeOffset[0] + p1 - coord1[1] - coord1[2] * dimensions[1])];
-                        e.neighbors[6] = allEdges[(int) (edgeOffset[0] + p2 - y2 - z2 * dimensions[1])];
-                    }
-                    if (coord1[1] < dimensions[1] - 1) {
-                        e.neighbors[7] = allEdges[(int) (edgeOffset[1] + p1 - dimensions[0] * coord1[2])];
-                        e.neighbors[8] = allEdges[(int) (edgeOffset[1] + p2 - dimensions[0] * z2)];
-                    }
-                    if (z2 < (dimensions.length > 2 ? (int) dimensions[2] : 1) - 1) {
-                        e.neighbors[9] = allEdges[(int) (edgeOffset[2] + p2)];
+                    if (e != neighbor) {
+                        e.neighbors[edgeNumber++] = neighbor;
                     }
                 }
-            } else {
-                // e.isVertical()
-                if (coord1[1] > 0) {
-                    e.neighbors[0] = allEdges[(int) (edgeOffset[1] + p1 - dimensions[0] - coord1[2] * dimensions[0])];
+                if (coord1[i] < dimensions[i] - 1) {
+                    Edge<T, L> neighbor = allEdges[(int) (edgeOffset[i] + toPointer(coord1, edgeDim))];
+                    if(p1!=neighbor.p1.getPointer()){
+                        System.err.println("error");
+                    }
+                    if (e != neighbor) {
+                        e.neighbors[edgeNumber++] = neighbor;
+                    }
                 }
-                if (x1 > 0) {
-                    e.neighbors[1] = allEdges[(int) (edgeOffset[0] + p1 - 1 - coord1[1] - coord1[2] * dimensions[1])];
-                    e.neighbors[2] = allEdges[(int) (edgeOffset[0] + p2 - 1 - y2 - z2 * dimensions[1])];
+                if (coord2[i] > 0) {
+                    int[] edgeCoords = coord2.clone();
+                    edgeCoords[i] -= 1;
+                    Edge<T, L> neighbor = allEdges[(int) (edgeOffset[i] + toPointer(edgeCoords, edgeDim))];
+                    if(p2!=neighbor.p2.getPointer()){
+                        System.err.println("error");
+                    }
+                    if (e != neighbor) {
+                        e.neighbors[edgeNumber++] = neighbor;
+                    }
                 }
-                if (y2 < dimensions[1] - 1) {
-                    e.neighbors[3] = allEdges[(int) (edgeOffset[1] + p2 - dimensions[0] * z2)];
-                }
-                if (x1 < dimensions[0] - 1) {
-                    e.neighbors[4] = allEdges[(int) (edgeOffset[0] + p2 - y2 - z2 * dimensions[1])];
-                    e.neighbors[5] = allEdges[(int) (edgeOffset[0] + p1 - coord1[1] - coord1[2] * dimensions[1])];
-                }
-                if (coord1[2] > 0) {
-                    e.neighbors[6] = allEdges[(int) (edgeOffset[2] + p1 - (dimensions[0] * dimensions[1]))];
-                    e.neighbors[7] = allEdges[(int) (edgeOffset[2] + p2 - (dimensions[0] * dimensions[1]))];
-                }
-                if (coord1[2] < (dimensions.length > 2 ? (int) dimensions[2] : 1) - 1) {
-                    e.neighbors[8] = allEdges[(int) (edgeOffset[2] + p1)];
-                    e.neighbors[9] = allEdges[(int) (edgeOffset[2] + p2)];
+                if (coord2[i] < dimensions[i] - 1) {
+                    Edge<T, L> neighbor = allEdges[(int) (edgeOffset[i] + toPointer(coord2, edgeDim))];
+                    if(p2!=neighbor.p1.getPointer()){
+                        System.err.println("error");
+                    }
+                    if (e != neighbor) {
+                        e.neighbors[edgeNumber++] = neighbor;
+                    }
                 }
             }
+//            if (!e.isVertical()) {
+//                if (!e.isDepth()) {
+//                    if (coord1[1] > 0) {
+//                        e.neighbors[0] = allEdges[(int) (edgeOffset[1] + p2 - (1 + coord2[2]) * dimensions[0])];
+//                        e.neighbors[1] = allEdges[(int) (edgeOffset[1] + p1 - (1 + coord1[2]) * dimensions[0])];
+//                    }
+//                    if (coord1[0] > 0) {
+//                        e.neighbors[2] = allEdges[(int) (edgeOffset[0] + p1 - 1 - coord1[1]
+//                                - coord1[2] * dimensions[1])];
+//                    }
+//                    if (coord1[1] < dimensions[1] - 1) {
+//                        e.neighbors[3] = allEdges[(int) (edgeOffset[1] + p1 - dimensions[0] * coord1[2])];
+//                        e.neighbors[4] = allEdges[(int) (edgeOffset[2] + p2 - dimensions[0] * coord2[2])];
+//                    }
+//                    if (coord2[0] < dimensions[0] - 1) {
+//                        e.neighbors[5] = allEdges[(int) (p2 - coord2[1] - coord2[2] * dimensions[1])];
+//                    }
+//                    if (coord1[2] > 0) {
+//                        e.neighbors[6] = allEdges[(int) (edgeOffset[2] + p1 - (dimensions[0] * dimensions[1]))];
+//                        e.neighbors[7] = allEdges[(int) (edgeOffset[2] + p2 - (dimensions[0] * dimensions[1]))];
+//                    }
+//                    if (coord1[2] < (dimensions.length > 2 ? (int) dimensions[2] : 1) - 1) {
+//                        e.neighbors[8] = allEdges[(int) (edgeOffset[2] + p1)];
+//                        e.neighbors[9] = allEdges[(int) (edgeOffset[2] + p2)];
+//                    }
+//                } else {
+//                    // e.isDepth()
+//                    if (coord1[0] > 0) {
+//                        e.neighbors[0] = allEdges[(int) (edgeOffset[0] + p1 - 1 - coord1[1]
+//                                - coord1[2] * dimensions[1])];
+//                        e.neighbors[1] = allEdges[(int) (edgeOffset[0] + p2 - 1 - coord2[1]
+//                                - coord2[2] * dimensions[1])];
+//                    }
+//                    if (coord1[1] > 0) {
+//                        e.neighbors[2] = allEdges[(int) (edgeOffset[1] + p1 - (coord1[2] + 1) * dimensions[0])];
+//                        e.neighbors[3] = allEdges[(int) (edgeOffset[1] + p2 - (coord2[2] + 1) * dimensions[0])];
+//                    }
+//                    if (coord1[2] > 0) {
+//                        e.neighbors[4] = allEdges[(int) (edgeOffset[2] + p1 - (dimensions[0] * dimensions[1]))];
+//                    }
+//                    if (coord1[0] < dimensions[0] - 1) {
+//                        e.neighbors[5] = allEdges[(int) (edgeOffset[0] + p1 - coord1[1] - coord1[2] * dimensions[1])];
+//                        e.neighbors[6] = allEdges[(int) (edgeOffset[0] + p2 - coord2[1] - coord2[2] * dimensions[1])];
+//                    }
+//                    if (coord1[1] < dimensions[1] - 1) {
+//                        e.neighbors[7] = allEdges[(int) (edgeOffset[1] + p1 - dimensions[0] * coord1[2])];
+//                        e.neighbors[8] = allEdges[(int) (edgeOffset[1] + p2 - dimensions[0] * coord2[2])];
+//                    }
+//                    if (coord2[2] < (dimensions.length > 2 ? (int) dimensions[2] : 1) - 1) {
+//                        e.neighbors[9] = allEdges[(int) (edgeOffset[2] + p2)];
+//                    }
+//                }
+//            } else {
+//                // e.isVertical()
+//                if (coord1[1] > 0) {
+//                    e.neighbors[0] = allEdges[(int) (edgeOffset[1] + p1 - (coord1[2] + 1) * dimensions[0])];
+//                }
+//                if (coord1[0] > 0) {
+//                    e.neighbors[1] = allEdges[(int) (edgeOffset[0] + p1 - 1 - coord1[1] - coord1[2] * dimensions[1])];
+//                    e.neighbors[2] = allEdges[(int) (edgeOffset[0] + p2 - 1 - coord2[1] - coord2[2] * dimensions[1])];
+//                }
+//                if (coord2[1] < dimensions[1] - 1) {
+//                    e.neighbors[3] = allEdges[(int) (edgeOffset[1] + p2 - dimensions[0] * coord2[2])];
+//                }
+//                if (coord1[0] < dimensions[0] - 1) {
+//                    e.neighbors[4] = allEdges[(int) (edgeOffset[0] + p2 - coord2[1] - coord2[2] * dimensions[1])];
+//                    e.neighbors[5] = allEdges[(int) (edgeOffset[0] + p1 - coord1[1] - coord1[2] * dimensions[1])];
+//                }
+//                if (coord1[2] > 0) {
+//                    e.neighbors[6] = allEdges[(int) (edgeOffset[2] + p1 - (dimensions[0] * dimensions[1]))];
+//                    e.neighbors[7] = allEdges[(int) (edgeOffset[2] + p2 - (dimensions[0] * dimensions[1]))];
+//                }
+//                if (coord1[2] < (dimensions.length > 2 ? (int) dimensions[2] : 1) - 1) {
+//                    e.neighbors[8] = allEdges[(int) (edgeOffset[2] + p1)];
+//                    e.neighbors[9] = allEdges[(int) (edgeOffset[2] + p2)];
+//                }
+//            }
         }
 
         /*

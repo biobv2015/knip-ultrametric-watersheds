@@ -17,7 +17,7 @@ public class Edge<T extends RealType<T>, L extends Comparable<L>> implements Com
     static boolean ascending;
 
     Edge(Pixel<T, L> p1, Pixel<T, L> p2, double normal_weight) {
-        neighbors = new Edge[10];
+        neighbors = new Edge[dimensions.length * 4 - 2];
         this.p1 = p1;
         this.p2 = p2;
         this.normal_weight = normal_weight;
