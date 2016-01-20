@@ -10,9 +10,8 @@ public class Pixel<T extends RealType<T>, L extends Comparable<L>> {
     int indic_VP;
     protected static long[] dimensions;
 
-    Pixel(long pointer, L label) {
+    Pixel(long pointer) {
         this.pointer = pointer;
-        this.label = label;
     }
 
     Pixel<T, L> find() {
