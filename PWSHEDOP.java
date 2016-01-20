@@ -50,7 +50,7 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
 
         final T maxVal = Views.iterable(image).firstElement().createVariable();
         maxVal.setReal(maxVal.getMaxValue());
-        double max = 100000;//0000;
+        double max = 100000;// 0000;
 
         final Cursor<LabelingType<L>> seedCursor = Views.iterable(seeds).localizingCursor();
         ArrayList<Pixel<T, L>> seedsL = new ArrayList<>();
@@ -84,7 +84,7 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
         Edge<T, L>[] allEdges = new Edge[(int) numOfEdges];
 
         final Cursor<T> imageCursor = Views.iterable(image).localizingCursor();
-        double[] lastSlice = new double[(int) (dimensions[0] * dimensions[1])];
+        double[] lastSlice = new double[(int) (numOfPixels / dimensions[dimensions.length - 1])];
 
         for (int pointer = 0; pointer < gPixelsT.length; pointer++) {
             LabelingType<L> labeling = seedCursor.next();
@@ -96,33 +96,27 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                     labels.add(gPixelsT[pointer].label);
                 }
             }
-            int lastSlicePointer = (int) (pointer % (dimensions[0] * dimensions[1]));
             double currentPixel = imageCursor.next().getRealDouble();
-            long x = pointer % dimensions[0];
-            long y = Math.floorDiv(pointer % (dimensions[0] * dimensions[1]), dimensions[0]);
-            long z = Math.floorDiv(pointer, (dimensions[0] * dimensions[1]));
-            if (x > 0) {
-                double normal_weight = max - Math.abs(lastSlice[(int) (lastSlicePointer - 1)] - currentPixel);
-                // horizontal edge
-                Edge<T, L> e = new Edge<T, L>(gPixelsT[pointer - 1], gPixelsT[pointer], normal_weight);
-                allEdges[(int) (edgeOffset[0] + pointer - 1 - y - dimensions[1] * z)] = e;
+            int[] coords = toCoordinates(pointer, dimensions);
+            for (int i = 0; i < dimensions.length; i++) {
+                if (coords[i] > 0) {
+                    coords[i] -= 1;
+                    int tmp = coords[coords.length - 1];
+                    coords[coords.length - 1] = 0;
+                    double normal_weight = max - Math.abs(lastSlice[toPointer(coords, dimensions)] - currentPixel);
+                    coords[coords.length - 1] = tmp;
+                    Edge<T, L> e = new Edge<T, L>(gPixelsT[toPointer(coords, dimensions)], gPixelsT[pointer],
+                            normal_weight);
+                    dimensions[i] -= 1;
+                    allEdges[(int) (edgeOffset[i] + toPointer(coords, dimensions))] = e;
+                    dimensions[i] += 1;
+                    coords[i] += 1;
+                }
             }
-            if (y > 0) {
-                double normal_weight = max
-                        - Math.abs(lastSlice[(int) (lastSlicePointer - dimensions[0])] - currentPixel);
-                // Vertical Edge
-                Edge<T, L> e = new Edge<T, L>(gPixelsT[(int) (pointer - dimensions[0])], gPixelsT[pointer],
-                        normal_weight);
-                allEdges[(int) (edgeOffset[1] + pointer - dimensions[0] * (1 + z))] = e;
-            }
-            if (z > 0) {
-                double normal_weight = max - Math.abs(lastSlice[lastSlicePointer] - currentPixel);
-                // depth edge
-                Edge<T, L> e = new Edge<T, L>(gPixelsT[(int) (pointer - (dimensions[0] * dimensions[1]))],
-                        gPixelsT[pointer], normal_weight);
-                allEdges[(int) (edgeOffset[2] + pointer - (dimensions[0] * dimensions[1]))] = e;
-            }
-            lastSlice[lastSlicePointer] = currentPixel;
+            int tmp = coords[coords.length - 1];
+            coords[coords.length - 1] = 0;
+            lastSlice[toPointer(coords, dimensions)] = currentPixel;
+            coords[coords.length - 1] = tmp;
         }
         ArrayList<Edge<T, L>> edges = new ArrayList<>(Arrays.asList(allEdges));
 
@@ -136,126 +130,37 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
             int[] coord2 = toCoordinates(p2, dimensions);
             int edgeNumber = 0;
             for (int i = 0; i < dimensions.length; i++) {
-                long[] edgeDim = dimensions.clone();
-                edgeDim[i] -= 1;
+                dimensions[i] -= 1;
                 if (coord1[i] > 0) {
-                    int[] edgeCoords = coord1.clone();
-                    edgeCoords[i] -= 1;
-                    Edge<T, L> neighbor = allEdges[(int) (edgeOffset[i] + toPointer(edgeCoords, edgeDim))];
-                    if(p1!=neighbor.p2.getPointer()){
-                        System.err.println("error");
-                    }
+                    coord1[i] -= 1;
+                    Edge<T, L> neighbor = allEdges[(int) (edgeOffset[i] + toPointer(coord1, dimensions))];
+                    coord1[i] += 1;
                     if (e != neighbor) {
                         e.neighbors[edgeNumber++] = neighbor;
                     }
                 }
-                if (coord1[i] < dimensions[i] - 1) {
-                    Edge<T, L> neighbor = allEdges[(int) (edgeOffset[i] + toPointer(coord1, edgeDim))];
-                    if(p1!=neighbor.p1.getPointer()){
-                        System.err.println("error");
-                    }
+                if (coord1[i] < dimensions[i]) {
+                    Edge<T, L> neighbor = allEdges[(int) (edgeOffset[i] + toPointer(coord1, dimensions))];
                     if (e != neighbor) {
                         e.neighbors[edgeNumber++] = neighbor;
                     }
                 }
                 if (coord2[i] > 0) {
-                    int[] edgeCoords = coord2.clone();
-                    edgeCoords[i] -= 1;
-                    Edge<T, L> neighbor = allEdges[(int) (edgeOffset[i] + toPointer(edgeCoords, edgeDim))];
-                    if(p2!=neighbor.p2.getPointer()){
-                        System.err.println("error");
-                    }
+                    coord2[i] -= 1;
+                    Edge<T, L> neighbor = allEdges[(int) (edgeOffset[i] + toPointer(coord2, dimensions))];
+                    coord2[i] += 1;
                     if (e != neighbor) {
                         e.neighbors[edgeNumber++] = neighbor;
                     }
                 }
-                if (coord2[i] < dimensions[i] - 1) {
-                    Edge<T, L> neighbor = allEdges[(int) (edgeOffset[i] + toPointer(coord2, edgeDim))];
-                    if(p2!=neighbor.p1.getPointer()){
-                        System.err.println("error");
-                    }
+                if (coord2[i] < dimensions[i]) {
+                    Edge<T, L> neighbor = allEdges[(int) (edgeOffset[i] + toPointer(coord2, dimensions))];
                     if (e != neighbor) {
                         e.neighbors[edgeNumber++] = neighbor;
                     }
                 }
+                dimensions[i] += 1;
             }
-//            if (!e.isVertical()) {
-//                if (!e.isDepth()) {
-//                    if (coord1[1] > 0) {
-//                        e.neighbors[0] = allEdges[(int) (edgeOffset[1] + p2 - (1 + coord2[2]) * dimensions[0])];
-//                        e.neighbors[1] = allEdges[(int) (edgeOffset[1] + p1 - (1 + coord1[2]) * dimensions[0])];
-//                    }
-//                    if (coord1[0] > 0) {
-//                        e.neighbors[2] = allEdges[(int) (edgeOffset[0] + p1 - 1 - coord1[1]
-//                                - coord1[2] * dimensions[1])];
-//                    }
-//                    if (coord1[1] < dimensions[1] - 1) {
-//                        e.neighbors[3] = allEdges[(int) (edgeOffset[1] + p1 - dimensions[0] * coord1[2])];
-//                        e.neighbors[4] = allEdges[(int) (edgeOffset[2] + p2 - dimensions[0] * coord2[2])];
-//                    }
-//                    if (coord2[0] < dimensions[0] - 1) {
-//                        e.neighbors[5] = allEdges[(int) (p2 - coord2[1] - coord2[2] * dimensions[1])];
-//                    }
-//                    if (coord1[2] > 0) {
-//                        e.neighbors[6] = allEdges[(int) (edgeOffset[2] + p1 - (dimensions[0] * dimensions[1]))];
-//                        e.neighbors[7] = allEdges[(int) (edgeOffset[2] + p2 - (dimensions[0] * dimensions[1]))];
-//                    }
-//                    if (coord1[2] < (dimensions.length > 2 ? (int) dimensions[2] : 1) - 1) {
-//                        e.neighbors[8] = allEdges[(int) (edgeOffset[2] + p1)];
-//                        e.neighbors[9] = allEdges[(int) (edgeOffset[2] + p2)];
-//                    }
-//                } else {
-//                    // e.isDepth()
-//                    if (coord1[0] > 0) {
-//                        e.neighbors[0] = allEdges[(int) (edgeOffset[0] + p1 - 1 - coord1[1]
-//                                - coord1[2] * dimensions[1])];
-//                        e.neighbors[1] = allEdges[(int) (edgeOffset[0] + p2 - 1 - coord2[1]
-//                                - coord2[2] * dimensions[1])];
-//                    }
-//                    if (coord1[1] > 0) {
-//                        e.neighbors[2] = allEdges[(int) (edgeOffset[1] + p1 - (coord1[2] + 1) * dimensions[0])];
-//                        e.neighbors[3] = allEdges[(int) (edgeOffset[1] + p2 - (coord2[2] + 1) * dimensions[0])];
-//                    }
-//                    if (coord1[2] > 0) {
-//                        e.neighbors[4] = allEdges[(int) (edgeOffset[2] + p1 - (dimensions[0] * dimensions[1]))];
-//                    }
-//                    if (coord1[0] < dimensions[0] - 1) {
-//                        e.neighbors[5] = allEdges[(int) (edgeOffset[0] + p1 - coord1[1] - coord1[2] * dimensions[1])];
-//                        e.neighbors[6] = allEdges[(int) (edgeOffset[0] + p2 - coord2[1] - coord2[2] * dimensions[1])];
-//                    }
-//                    if (coord1[1] < dimensions[1] - 1) {
-//                        e.neighbors[7] = allEdges[(int) (edgeOffset[1] + p1 - dimensions[0] * coord1[2])];
-//                        e.neighbors[8] = allEdges[(int) (edgeOffset[1] + p2 - dimensions[0] * coord2[2])];
-//                    }
-//                    if (coord2[2] < (dimensions.length > 2 ? (int) dimensions[2] : 1) - 1) {
-//                        e.neighbors[9] = allEdges[(int) (edgeOffset[2] + p2)];
-//                    }
-//                }
-//            } else {
-//                // e.isVertical()
-//                if (coord1[1] > 0) {
-//                    e.neighbors[0] = allEdges[(int) (edgeOffset[1] + p1 - (coord1[2] + 1) * dimensions[0])];
-//                }
-//                if (coord1[0] > 0) {
-//                    e.neighbors[1] = allEdges[(int) (edgeOffset[0] + p1 - 1 - coord1[1] - coord1[2] * dimensions[1])];
-//                    e.neighbors[2] = allEdges[(int) (edgeOffset[0] + p2 - 1 - coord2[1] - coord2[2] * dimensions[1])];
-//                }
-//                if (coord2[1] < dimensions[1] - 1) {
-//                    e.neighbors[3] = allEdges[(int) (edgeOffset[1] + p2 - dimensions[0] * coord2[2])];
-//                }
-//                if (coord1[0] < dimensions[0] - 1) {
-//                    e.neighbors[4] = allEdges[(int) (edgeOffset[0] + p2 - coord2[1] - coord2[2] * dimensions[1])];
-//                    e.neighbors[5] = allEdges[(int) (edgeOffset[0] + p1 - coord1[1] - coord1[2] * dimensions[1])];
-//                }
-//                if (coord1[2] > 0) {
-//                    e.neighbors[6] = allEdges[(int) (edgeOffset[2] + p1 - (dimensions[0] * dimensions[1]))];
-//                    e.neighbors[7] = allEdges[(int) (edgeOffset[2] + p2 - (dimensions[0] * dimensions[1]))];
-//                }
-//                if (coord1[2] < (dimensions.length > 2 ? (int) dimensions[2] : 1) - 1) {
-//                    e.neighbors[8] = allEdges[(int) (edgeOffset[2] + p1)];
-//                    e.neighbors[9] = allEdges[(int) (edgeOffset[2] + p2)];
-//                }
-//            }
         }
 
         /*
@@ -265,35 +170,19 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
         for (Pixel<T, L> p : seedsL) {
             int pointer = p.getPointer();
             int[] coord = toCoordinates(pointer, dimensions);
-            if (coord[0] < dimensions[0] - 1) {
-                // to the right
-                int edgePointer = (int) (edgeOffset[0] + pointer - coord[1] - coord[2] * dimensions[1]);
-                allEdges[edgePointer].weight = allEdges[edgePointer].normal_weight;
-            }
-            if (coord[1] < dimensions[1] - 1) {
-                // to the bottom
-                int edgePointer = (int) (edgeOffset[1] + pointer - dimensions[0] * coord[2]);
-                allEdges[edgePointer].weight = allEdges[edgePointer].normal_weight;
-            }
-            if (coord[2] < (dimensions.length > 2 ? (int) dimensions[2] : 1) - 1) {
-                // to the back
-                int edgePointer = (int) (edgeOffset[2] + pointer);
-                allEdges[edgePointer].weight = allEdges[edgePointer].normal_weight;
-            }
-            if (coord[0] > 0) {
-                // to the left
-                int edgePointer = (int) (edgeOffset[0] + pointer - 1 - coord[1] - coord[2] * dimensions[1]);
-                allEdges[edgePointer].weight = allEdges[edgePointer].normal_weight;
-            }
-            if (coord[1] > 0) {
-                // to the top
-                int edgePointer = (int) (edgeOffset[1] + pointer - dimensions[0] * (1 + coord[2]));
-                allEdges[edgePointer].weight = allEdges[edgePointer].normal_weight;
-            }
-            if (coord[2] > 0) {
-                // to the front
-                int edgePointer = (int) (edgeOffset[2] + pointer - (dimensions[0] * dimensions[1]));
-                allEdges[edgePointer].weight = allEdges[edgePointer].normal_weight;
+            for (int i = 0; i < dimensions.length; i++) {
+                dimensions[i] -= 1;
+                if (coord[i] < dimensions[i] - 1) {
+                    int edgePointer = (int) (edgeOffset[i] + toPointer(coord, dimensions));
+                    allEdges[edgePointer].weight = allEdges[edgePointer].normal_weight;
+                }
+                if (coord[i] > 0) {
+                    coord[i] -= 1;
+                    int edgePointer = (int) (edgeOffset[i] + toPointer(coord, dimensions));
+                    coord[i] += 1;
+                    allEdges[edgePointer].weight = allEdges[edgePointer].normal_weight;
+                }
+                dimensions[i] += 1;
             }
         }
 
@@ -702,23 +591,9 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                     "The dimensionality of the seed labeling (%dD) does not match that of the output labeling (%dD)",
                     seeds.numDimensions(), output.numDimensions()));
         }
-        if (seeds.numDimensions() > 3) {
-            throw new IllegalArgumentException("more than 3 dimensions not yet supported");
-        } else {
-            if (seeds.numDimensions() > 2) {
-                if (seeds.dimension(2) != image.dimension(2) || seeds.dimension(2) != output.dimension(2)) {
-                    throw new IllegalArgumentException("only images with identical size are supported right now");
-                }
-            }
-            if (seeds.numDimensions() > 1) {
-                if (seeds.dimension(1) != image.dimension(1) || seeds.dimension(1) != output.dimension(1)) {
-                    throw new IllegalArgumentException("only images with identical size are supported right now");
-                }
-            }
-            if (seeds.numDimensions() > 0) {
-                if (seeds.dimension(0) != image.dimension(0) || seeds.dimension(0) != output.dimension(0)) {
-                    throw new IllegalArgumentException("only images with identical size are supported right now");
-                }
+        for (int i = 0; i < seeds.numDimensions(); i++) {
+            if (seeds.dimension(i) != image.dimension(i) || seeds.dimension(i) != output.dimension(i)) {
+                throw new IllegalArgumentException("only images with identical size are supported right now");
             }
         }
     }
