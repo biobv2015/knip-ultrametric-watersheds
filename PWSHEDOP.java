@@ -6,14 +6,12 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Stack;
 
-import javax.management.RuntimeErrorException;
-
+import org.apache.commons.math3.linear.Array2DRowRealMatrix;
+import org.apache.commons.math3.linear.LUDecomposition;
 import org.scijava.ItemIO;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
 
-import Jama.LUDecomposition;
-import Jama.Matrix;
 import net.imagej.ops.AbstractOp;
 import net.imagej.ops.Op;
 import net.imglib2.Cursor;
@@ -25,7 +23,7 @@ import net.imglib2.view.Views;
 @Plugin(type = Op.class)
 public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> extends AbstractOp {
 
-    private static int SIZE_MAX_PLATEAU = 1000000;
+    private static int SIZE_MAX_PLATEAU = 10000;
     private static double EPSILON = 0.000001;
 
     @Parameter(type = ItemIO.INPUT)
@@ -576,14 +574,14 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
         // The system to solve is A x = -B X2
         // building matrix A : laplacian for unseeded nodes
         // building boundary matrix B
-        Matrix A = new Matrix(numOfUnseededNodes, numOfUnseededNodes);
-        Matrix B = new Matrix(numOfUnseededNodes, numOfSeededNodes);
+        Array2DRowRealMatrix A = new Array2DRowRealMatrix(numOfUnseededNodes, numOfUnseededNodes);
+        Array2DRowRealMatrix B = new Array2DRowRealMatrix(numOfUnseededNodes, numOfSeededNodes);
 
         // fill the diagonal
         int rnz = 0;
         for (Pixel<T, L> p : pixelsLCP) {
             if (!local_seeds.contains(p)) {
-                A.set(rnz, rnz, indic_sparse[p.indic_VP]);
+                A.setEntry(rnz, rnz, indic_sparse[p.indic_VP]);
                 rnz++;
             }
         }
@@ -606,12 +604,12 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
             int p1 = e.p1.indic_VP;
             int p2 = e.p2.indic_VP;
             if (!local_seeds.contains(e.p1) && !local_seeds.contains(e.p2)) {
-                A.set(indic_sparse[p1], indic_sparse[p2], -numOfSameEdges[k] - 1);
-                A.set(indic_sparse[p2], indic_sparse[p1], -numOfSameEdges[k] - 1);
+                A.setEntry(indic_sparse[p1], indic_sparse[p2], -numOfSameEdges[k] - 1);
+                A.setEntry(indic_sparse[p2], indic_sparse[p1], -numOfSameEdges[k] - 1);
             } else if (local_seeds.contains(e.p1)) {
-                B.set(indic_sparse[p2], indic_sparse[p1], -numOfSameEdges[k] - 1);
+                B.setEntry(indic_sparse[p2], indic_sparse[p1], -numOfSameEdges[k] - 1);
             } else if (local_seeds.contains(e.p2)) {
-                B.set(indic_sparse[p1], indic_sparse[p2], -numOfSameEdges[k] - 1);
+                B.setEntry(indic_sparse[p1], indic_sparse[p2], -numOfSameEdges[k] - 1);
             }
         }
         // A(i,j)=n means that node ith and jth unseeded nodes are connected by
@@ -623,26 +621,26 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
 
         // building the right hand side of the system
         for (int l = 0; l < proba.length; l++) {
-            Matrix X = new Matrix(numOfSeededNodes, 1);
+            Array2DRowRealMatrix X = new Array2DRowRealMatrix(numOfSeededNodes, 1);
             // building vector X
             for (int i = 0; i < numOfSeededNodes; i++) {
-                X.set(i, 0, local_labels[l][i]);
+                X.setEntry(i, 0, local_labels[l][i]);
             }
 
-            Matrix BX = B.times(X);
+            Array2DRowRealMatrix BX = B.multiply(X);
 
             double[] b = new double[numOfUnseededNodes];
 
             for (int i = 0; i < numOfUnseededNodes; i++) {
                 for (int j = 0; j < BX.getColumnDimension(); j++) {
-                    if (BX.get(i, j) != 0) {
-                        b[i] = -BX.get(i, j);
+                    if (BX.getEntry(i, j) != 0) {
+                        b[i] = -BX.getEntry(i, j);
                     }
                 }
             }
             // solve Ax=b by LU decomposition, order = 1
 
-            b = AXB.solve(new Matrix(b, numOfUnseededNodes)).getColumnPackedCopy();
+            b = AXB.getSolver().solve(new Array2DRowRealMatrix(b)).getColumnVector(0).toArray();
 
             int cpt = 0;
             for (Pixel<T, L> p : pixelsLCP) {
