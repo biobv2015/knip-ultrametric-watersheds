@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Stack;
 
 import org.apache.commons.math3.linear.Array2DRowRealMatrix;
@@ -89,36 +88,34 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
 
         for (int pointer = 0; pointer < gPixelsT.length; pointer++) {
             LabelingType<L> labeling = seedCursor.next();
+            gPixelsT[pointer] = new Pixel<T, L>(pointer, null);
             if (labeling.size() != 0) {
-                L label = labeling.iterator().next();
-                gPixelsT[pointer] = new Pixel<T, L>(pointer, label);
+                gPixelsT[pointer].label = labeling.iterator().next();
                 seedsL.add(gPixelsT[pointer]);
-                if (!labels.contains(label)) {
-                    labels.add(label);
+                if (!labels.contains(gPixelsT[pointer].label)) {
+                    labels.add(gPixelsT[pointer].label);
                 }
-            } else {
-                gPixelsT[pointer] = new Pixel<T, L>(pointer, null);
             }
             int lastSlicePointer = (int) (pointer % (dimensions[0] * dimensions[1]));
             double currentPixel = imageCursor.next().getRealDouble();
-            if (pointer % dimensions[0] > 0) {
+            long x = pointer % dimensions[0];
+            long y = Math.floorDiv(pointer % (dimensions[0] * dimensions[1]), dimensions[0]);
+            long z = Math.floorDiv(pointer, (dimensions[0] * dimensions[1]));
+            if (x > 0) {
                 double normal_weight = max - Math.abs(lastSlice[(int) (lastSlicePointer - 1)] - currentPixel);
                 // horizontal edge
                 Edge<T, L> e = new Edge<T, L>(gPixelsT[pointer - 1], gPixelsT[pointer], normal_weight);
-                allEdges[(int) (edgeOffset[0] + pointer - 1
-                        - Math.floor((pointer % (dimensions[0] * dimensions[1])) / dimensions[0])
-                        - dimensions[1] * Math.floor(pointer / (dimensions[0] * dimensions[1])))] = e;
+                allEdges[(int) (edgeOffset[0] + pointer - 1 - y - dimensions[1] * z)] = e;
             }
-            if (pointer % (dimensions[0] * dimensions[1]) >= dimensions[0]) {
+            if (y > 0) {
                 double normal_weight = max
                         - Math.abs(lastSlice[(int) (lastSlicePointer - dimensions[0])] - currentPixel);
                 // Vertical Edge
                 Edge<T, L> e = new Edge<T, L>(gPixelsT[(int) (pointer - dimensions[0])], gPixelsT[pointer],
                         normal_weight);
-                allEdges[(int) (edgeOffset[1] + pointer
-                        - dimensions[0] * (1 + Math.floor(pointer / (dimensions[0] * dimensions[1]))))] = e;
+                allEdges[(int) (edgeOffset[1] + pointer - dimensions[0] * (1 + z))] = e;
             }
-            if (pointer >= (dimensions[0] * dimensions[1])) {
+            if (z > 0) {
                 double normal_weight = max - Math.abs(lastSlice[lastSlicePointer] - currentPixel);
                 // depth edge
                 Edge<T, L> e = new Edge<T, L>(gPixelsT[(int) (pointer - (dimensions[0] * dimensions[1]))],
@@ -133,96 +130,85 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
          * get the neighbor-information
          */
         for (Edge<T, L> e : edges) {
-            long z1 = Math.floorDiv(e.p1.getPointer(), (dimensions[0] * dimensions[1]));
-            long y1 = Math.floorDiv((e.p1.getPointer() % (dimensions[0] * dimensions[1])), dimensions[0]);
-            long x1 = e.p1.getPointer() % dimensions[0];
-            long z2 = Math.floorDiv(e.p2.getPointer(), (dimensions[0] * dimensions[1]));
-            long y2 = Math.floorDiv((e.p2.getPointer() % (dimensions[0] * dimensions[1])), dimensions[0]);
-            long x2 = e.p2.getPointer() % dimensions[0];
+            int p1 = e.p1.getPointer();
+            int[] coord1 = toCoordinates(p1, dimensions);
+            long x1 = p1 % dimensions[0];
+            int p2 = e.p2.getPointer();
+            long z2 = Math.floorDiv(p2, (dimensions[0] * dimensions[1]));
+            long y2 = Math.floorDiv((p2 % (dimensions[0] * dimensions[1])), dimensions[0]);
+            long x2 = p2 % dimensions[0];
             if (!e.isVertical()) {
                 if (!e.isDepth()) {
-                    if (y1 > 0) {
-                        e.neighbors[0] = allEdges[(int) (edgeOffset[1] + e.p2.getPointer() - dimensions[0]
-                                - z2 * dimensions[0])];
-                        e.neighbors[1] = allEdges[(int) (edgeOffset[1] + e.p1.getPointer() - dimensions[0]
-                                - z1 * dimensions[0])];
+                    if (coord1[1] > 0) {
+                        e.neighbors[0] = allEdges[(int) (edgeOffset[1] + p2 - dimensions[0] - z2 * dimensions[0])];
+                        e.neighbors[1] = allEdges[(int) (edgeOffset[1] + p1 - dimensions[0] - coord1[2] * dimensions[0])];
                     }
                     if (x1 > 0) {
-                        e.neighbors[2] = allEdges[(int) (edgeOffset[0] + e.p1.getPointer() - 1 - y1
-                                - z1 * dimensions[1])];
+                        e.neighbors[2] = allEdges[(int) (edgeOffset[0] + p1 - 1 - coord1[1] - coord1[2] * dimensions[1])];
                     }
-                    if (y1 < dimensions[1] - 1) {
-                        e.neighbors[3] = allEdges[(int) (edgeOffset[1] + e.p1.getPointer() - dimensions[0] * z1)];
-                        e.neighbors[4] = allEdges[(int) (edgeOffset[2] + e.p2.getPointer() - dimensions[0] * z2)];
+                    if (coord1[1] < dimensions[1] - 1) {
+                        e.neighbors[3] = allEdges[(int) (edgeOffset[1] + p1 - dimensions[0] * coord1[2])];
+                        e.neighbors[4] = allEdges[(int) (edgeOffset[2] + p2 - dimensions[0] * z2)];
                     }
                     if (x2 < dimensions[0] - 1) {
-                        e.neighbors[5] = allEdges[(int) (e.p2.getPointer() - y2 - z2 * dimensions[1])];
+                        e.neighbors[5] = allEdges[(int) (p2 - y2 - z2 * dimensions[1])];
                     }
-                    if (z1 > 0) {
-                        e.neighbors[6] = allEdges[(int) (edgeOffset[2] + e.p1.getPointer()
-                                - (dimensions[0] * dimensions[1]))];
-                        e.neighbors[7] = allEdges[(int) (edgeOffset[2] + e.p2.getPointer()
-                                - (dimensions[0] * dimensions[1]))];
+                    if (coord1[2] > 0) {
+                        e.neighbors[6] = allEdges[(int) (edgeOffset[2] + p1 - (dimensions[0] * dimensions[1]))];
+                        e.neighbors[7] = allEdges[(int) (edgeOffset[2] + p2 - (dimensions[0] * dimensions[1]))];
                     }
-                    if (z1 < (dimensions.length > 2 ? (int) dimensions[2] : 1) - 1) {
-                        e.neighbors[8] = allEdges[(int) (edgeOffset[2] + e.p1.getPointer())];
-                        e.neighbors[9] = allEdges[(int) (edgeOffset[2] + e.p2.getPointer())];
+                    if (coord1[2] < (dimensions.length > 2 ? (int) dimensions[2] : 1) - 1) {
+                        e.neighbors[8] = allEdges[(int) (edgeOffset[2] + p1)];
+                        e.neighbors[9] = allEdges[(int) (edgeOffset[2] + p2)];
                     }
                 } else {
                     // e.isDepth()
                     if (x1 > 0) {
-                        e.neighbors[0] = allEdges[(int) (edgeOffset[0] + e.p1.getPointer() - 1 - y1
-                                - z1 * dimensions[1])];
-                        e.neighbors[1] = allEdges[(int) (edgeOffset[0] + e.p2.getPointer() - 1 - y2
-                                - z2 * dimensions[1])];
+                        e.neighbors[0] = allEdges[(int) (edgeOffset[0] + p1 - 1 - coord1[1] - coord1[2] * dimensions[1])];
+                        e.neighbors[1] = allEdges[(int) (edgeOffset[0] + p2 - 1 - y2 - z2 * dimensions[1])];
                     }
-                    if (y1 > 0) {
-                        e.neighbors[2] = allEdges[(int) (edgeOffset[1] + e.p1.getPointer() - dimensions[0]
-                                - z1 * dimensions[0])];
-                        e.neighbors[3] = allEdges[(int) (edgeOffset[1] + e.p2.getPointer() - dimensions[0]
-                                - z2 * dimensions[0])];
+                    if (coord1[1] > 0) {
+                        e.neighbors[2] = allEdges[(int) (edgeOffset[1] + p1 - dimensions[0] - coord1[2] * dimensions[0])];
+                        e.neighbors[3] = allEdges[(int) (edgeOffset[1] + p2 - dimensions[0] - z2 * dimensions[0])];
                     }
-                    if (z1 > 0) {
-                        e.neighbors[4] = allEdges[(int) (edgeOffset[2] + e.p1.getPointer()
-                                - (dimensions[0] * dimensions[1]))];
+                    if (coord1[2] > 0) {
+                        e.neighbors[4] = allEdges[(int) (edgeOffset[2] + p1 - (dimensions[0] * dimensions[1]))];
                     }
                     if (x1 < dimensions[0] - 1) {
-                        e.neighbors[5] = allEdges[(int) (edgeOffset[0] + e.p1.getPointer() - y1 - z1 * dimensions[1])];
-                        e.neighbors[6] = allEdges[(int) (edgeOffset[0] + e.p2.getPointer() - y2 - z2 * dimensions[1])];
+                        e.neighbors[5] = allEdges[(int) (edgeOffset[0] + p1 - coord1[1] - coord1[2] * dimensions[1])];
+                        e.neighbors[6] = allEdges[(int) (edgeOffset[0] + p2 - y2 - z2 * dimensions[1])];
                     }
-                    if (y1 < dimensions[1] - 1) {
-                        e.neighbors[7] = allEdges[(int) (edgeOffset[1] + e.p1.getPointer() - dimensions[0] * z1)];
-                        e.neighbors[8] = allEdges[(int) (edgeOffset[1] + e.p2.getPointer() - dimensions[0] * z2)];
+                    if (coord1[1] < dimensions[1] - 1) {
+                        e.neighbors[7] = allEdges[(int) (edgeOffset[1] + p1 - dimensions[0] * coord1[2])];
+                        e.neighbors[8] = allEdges[(int) (edgeOffset[1] + p2 - dimensions[0] * z2)];
                     }
                     if (z2 < (dimensions.length > 2 ? (int) dimensions[2] : 1) - 1) {
-                        e.neighbors[9] = allEdges[(int) (edgeOffset[2] + e.p2.getPointer())];
+                        e.neighbors[9] = allEdges[(int) (edgeOffset[2] + p2)];
                     }
                 }
-            } else { // e.isVertical()
-                if (y1 > 0) {
-                    e.neighbors[0] = allEdges[(int) (edgeOffset[1] + e.p1.getPointer() - dimensions[0]
-                            - z1 * dimensions[0])];
+            } else {
+                // e.isVertical()
+                if (coord1[1] > 0) {
+                    e.neighbors[0] = allEdges[(int) (edgeOffset[1] + p1 - dimensions[0] - coord1[2] * dimensions[0])];
                 }
                 if (x1 > 0) {
-                    e.neighbors[1] = allEdges[(int) (edgeOffset[0] + e.p1.getPointer() - 1 - y1 - z1 * dimensions[1])];
-                    e.neighbors[2] = allEdges[(int) (edgeOffset[0] + e.p2.getPointer() - 1 - y2 - z2 * dimensions[1])];
+                    e.neighbors[1] = allEdges[(int) (edgeOffset[0] + p1 - 1 - coord1[1] - coord1[2] * dimensions[1])];
+                    e.neighbors[2] = allEdges[(int) (edgeOffset[0] + p2 - 1 - y2 - z2 * dimensions[1])];
                 }
                 if (y2 < dimensions[1] - 1) {
-                    e.neighbors[3] = allEdges[(int) (edgeOffset[1] + e.p2.getPointer() - dimensions[0] * z2)];
+                    e.neighbors[3] = allEdges[(int) (edgeOffset[1] + p2 - dimensions[0] * z2)];
                 }
                 if (x1 < dimensions[0] - 1) {
-                    e.neighbors[4] = allEdges[(int) (edgeOffset[0] + e.p2.getPointer() - y2 - z2 * dimensions[1])];
-                    e.neighbors[5] = allEdges[(int) (edgeOffset[0] + e.p1.getPointer() - y1 - z1 * dimensions[1])];
+                    e.neighbors[4] = allEdges[(int) (edgeOffset[0] + p2 - y2 - z2 * dimensions[1])];
+                    e.neighbors[5] = allEdges[(int) (edgeOffset[0] + p1 - coord1[1] - coord1[2] * dimensions[1])];
                 }
-                if (z1 > 0) {
-                    e.neighbors[6] = allEdges[(int) (edgeOffset[2] + e.p1.getPointer()
-                            - (dimensions[0] * dimensions[1]))];
-                    e.neighbors[7] = allEdges[(int) (edgeOffset[2] + e.p2.getPointer()
-                            - (dimensions[0] * dimensions[1]))];
+                if (coord1[2] > 0) {
+                    e.neighbors[6] = allEdges[(int) (edgeOffset[2] + p1 - (dimensions[0] * dimensions[1]))];
+                    e.neighbors[7] = allEdges[(int) (edgeOffset[2] + p2 - (dimensions[0] * dimensions[1]))];
                 }
-                if (z1 < (dimensions.length > 2 ? (int) dimensions[2] : 1) - 1) {
-                    e.neighbors[8] = allEdges[(int) (edgeOffset[2] + e.p1.getPointer())];
-                    e.neighbors[9] = allEdges[(int) (edgeOffset[2] + e.p2.getPointer())];
+                if (coord1[2] < (dimensions.length > 2 ? (int) dimensions[2] : 1) - 1) {
+                    e.neighbors[8] = allEdges[(int) (edgeOffset[2] + p1)];
+                    e.neighbors[9] = allEdges[(int) (edgeOffset[2] + p2)];
                 }
             }
         }
@@ -233,35 +219,33 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
          */
         for (Pixel<T, L> p : seedsL) {
             int pointer = p.getPointer();
-            long x = pointer % dimensions[0];
-            long y = Math.floorDiv((pointer % (dimensions[0] * dimensions[1])), dimensions[0]);
-            long z = Math.floorDiv(pointer, (dimensions[0] * dimensions[1]));
-            if (x < dimensions[0] - 1) {
+            int[] coord = toCoordinates(pointer, dimensions);
+            if (coord[0] < dimensions[0] - 1) {
                 // to the right
-                int edgePointer = (int) (edgeOffset[0] + pointer - y - z * dimensions[1]);
+                int edgePointer = (int) (edgeOffset[0] + pointer - coord[1] - coord[2] * dimensions[1]);
                 allEdges[edgePointer].weight = allEdges[edgePointer].normal_weight;
             }
-            if (y < dimensions[1] - 1) {
+            if (coord[1] < dimensions[1] - 1) {
                 // to the bottom
-                int edgePointer = (int) (edgeOffset[1] + pointer - dimensions[0] * z);
+                int edgePointer = (int) (edgeOffset[1] + pointer - dimensions[0] * coord[2]);
                 allEdges[edgePointer].weight = allEdges[edgePointer].normal_weight;
             }
-            if (z < (dimensions.length > 2 ? (int) dimensions[2] : 1) - 1) {
+            if (coord[2] < (dimensions.length > 2 ? (int) dimensions[2] : 1) - 1) {
                 // to the back
                 int edgePointer = (int) (edgeOffset[2] + pointer);
                 allEdges[edgePointer].weight = allEdges[edgePointer].normal_weight;
             }
-            if (x > 0) {
+            if (coord[0] > 0) {
                 // to the left
-                int edgePointer = (int) (edgeOffset[0] + pointer - 1 - y - z * dimensions[1]);
+                int edgePointer = (int) (edgeOffset[0] + pointer - 1 - coord[1] - coord[2] * dimensions[1]);
                 allEdges[edgePointer].weight = allEdges[edgePointer].normal_weight;
             }
-            if (y > 0) {
+            if (coord[1] > 0) {
                 // to the top
-                int edgePointer = (int) (edgeOffset[1] + pointer - dimensions[0] - dimensions[0] * z);
+                int edgePointer = (int) (edgeOffset[1] + pointer - dimensions[0] * (1 + coord[2]));
                 allEdges[edgePointer].weight = allEdges[edgePointer].normal_weight;
             }
-            if (z > 0) {
+            if (coord[2] > 0) {
                 // to the front
                 int edgePointer = (int) (edgeOffset[2] + pointer - (dimensions[0] * dimensions[1]));
                 allEdges[edgePointer].weight = allEdges[edgePointer].normal_weight;
