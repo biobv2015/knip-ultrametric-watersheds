@@ -27,9 +27,8 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
 
     private static class Edge implements Comparable<Edge> {
         final double normal_weight;
-        protected static long[] dimensions;
         double weight = 0;
-        Edge[] neighbors;
+        Set<Edge> neighbors;
         boolean visited;
         final long p1;
         final long p2;
@@ -37,10 +36,8 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
         boolean Mrk;
 
         static boolean weights;
-        static boolean ascending;
 
         Edge(long p1, long p2, double normal_weight) {
-            neighbors = new Edge[dimensions.length * 4 - 2];
             this.p1 = p1;
             this.p2 = p2;
             this.normal_weight = normal_weight;
@@ -58,23 +55,20 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
             int result = 0;
             if (weights) {
                 if (weight < e.weight) {
-                    result = -1;
-                } else if (weight > e.weight) {
                     result = 1;
+                } else if (weight > e.weight) {
+                    result = -1;
                 } else {
                     result = 0;
                 }
             } else {
                 if (normal_weight < e.normal_weight) {
-                    result = -1;
-                } else if (normal_weight > e.normal_weight) {
                     result = 1;
+                } else if (normal_weight > e.normal_weight) {
+                    result = -1;
                 } else {
                     result = 0;
                 }
-            }
-            if (!ascending) {
-                result *= -1;
             }
             return result;
         }
@@ -134,7 +128,12 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
 
         long dimensions[] = new long[image.numDimensions()];
         image.dimensions(dimensions);
-        Edge.dimensions = dimensions;
+
+        long[][] edgeDimensions = new long[dimensions.length][dimensions.length];
+        for (int i = 0; i < dimensions.length; i++) {
+            edgeDimensions[i] = dimensions.clone();
+            edgeDimensions[i][i] -= 1;
+        }
 
         final T maxVal = Views.iterable(image).firstElement().createVariable();
         maxVal.setReal(maxVal.getMaxValue());
@@ -180,9 +179,9 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
             if (labeling.size() != 0) {
                 L label = labeling.iterator().next();
                 if (!label2int.containsKey(label)) {
-                    label2int.put(label, seedsL.size());
-                    int2label.put(seedsL.size(), label);
                     pixLabel[pointer] = seedsL.size();
+                    label2int.put(label, pixLabel[pointer]);
+                    int2label.put(pixLabel[pointer], label);
                 } else {
                     pixLabel[pointer] = label2int.get(label);
                 }
@@ -198,9 +197,12 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                     double normal_weight = max - Math.abs(lastSlice[toPointer(coords, dimensions)] - currentPixel);
                     coords[coords.length - 1] = tmp;
                     Edge e = new Edge(toPointer(coords, dimensions), pointer, normal_weight);
-                    dimensions[i] -= 1;
-                    allEdges[(int) (edgeOffset[i] + toPointer(coords, dimensions))] = e;
-                    dimensions[i] += 1;
+                    if (seedsL.contains(e.p1) || seedsL.contains(e.p2)) {
+                        // The edges connected to seeds get the weight set as
+                        // their normal_weight
+                        e.weight = normal_weight;
+                    }
+                    allEdges[(int) (edgeOffset[i] + toPointer(coords, edgeDimensions[i]))] = e;
                     coords[i] += 1;
                 }
             }
@@ -211,79 +213,51 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
         }
         ArrayList<Edge> edges = new ArrayList<Edge>(Arrays.asList(allEdges));
 
-        /*
-         * get the neighbor-information
-         */
+        Edge.weights = false;
+        Collections.sort(edges);
+        // heaviest first
         for (Edge e : edges) {
+            /*
+             * get the neighbor-information
+             */
             int[] coord1 = toCoordinates((int) e.p1, dimensions);
             int[] coord2 = toCoordinates((int) e.p2, dimensions);
-            int edgeNumber = 0;
+            e.neighbors = new HashSet<>();
             for (int i = 0; i < dimensions.length; i++) {
-                dimensions[i] -= 1;
                 if (coord1[i] > 0) {
                     coord1[i] -= 1;
-                    Edge neighbor = allEdges[(int) (edgeOffset[i] + toPointer(coord1, dimensions))];
+                    Edge neighbor = allEdges[(int) (edgeOffset[i] + toPointer(coord1, edgeDimensions[i]))];
                     coord1[i] += 1;
                     if (e != neighbor) {
-                        e.neighbors[edgeNumber++] = neighbor;
+                        e.neighbors.add(neighbor);
                     }
                 }
-                if (coord1[i] < dimensions[i]) {
-                    Edge neighbor = allEdges[(int) (edgeOffset[i] + toPointer(coord1, dimensions))];
+                if (coord1[i] < edgeDimensions[i][i]) {
+                    Edge neighbor = allEdges[(int) (edgeOffset[i] + toPointer(coord1, edgeDimensions[i]))];
                     if (e != neighbor) {
-                        e.neighbors[edgeNumber++] = neighbor;
+                        e.neighbors.add(neighbor);
                     }
                 }
                 if (coord2[i] > 0) {
                     coord2[i] -= 1;
-                    Edge neighbor = allEdges[(int) (edgeOffset[i] + toPointer(coord2, dimensions))];
+                    Edge neighbor = allEdges[(int) (edgeOffset[i] + toPointer(coord2, edgeDimensions[i]))];
                     coord2[i] += 1;
                     if (e != neighbor) {
-                        e.neighbors[edgeNumber++] = neighbor;
+                        e.neighbors.add(neighbor);
                     }
                 }
-                if (coord2[i] < dimensions[i]) {
-                    Edge neighbor = allEdges[(int) (edgeOffset[i] + toPointer(coord2, dimensions))];
+                if (coord2[i] < edgeDimensions[i][i]) {
+                    Edge neighbor = allEdges[(int) (edgeOffset[i] + toPointer(coord2, edgeDimensions[i]))];
                     if (e != neighbor) {
-                        e.neighbors[edgeNumber++] = neighbor;
+                        e.neighbors.add(neighbor);
                     }
                 }
-                dimensions[i] += 1;
             }
-        }
-
-        /*
-         * The edges connected to seeds get the weight set as their
-         * normal_weight
-         */
-        for (long p : seedsL) {
-            int[] coord = toCoordinates((int) p, dimensions);
-            for (int i = 0; i < dimensions.length; i++) {
-                dimensions[i] -= 1;
-                if (coord[i] < dimensions[i] - 1) {
-                    int edgePointer = (int) (edgeOffset[i] + toPointer(coord, dimensions));
-                    allEdges[edgePointer].weight = allEdges[edgePointer].normal_weight;
-                }
-                if (coord[i] > 0) {
-                    coord[i] -= 1;
-                    int edgePointer = (int) (edgeOffset[i] + toPointer(coord, dimensions));
-                    coord[i] += 1;
-                    allEdges[edgePointer].weight = allEdges[edgePointer].normal_weight;
-                }
-                dimensions[i] += 1;
-            }
-        }
-
-        Edge.weights = false;
-        Edge.ascending = false;
-        Collections.sort(edges);
-        // heaviest first
-        for (Edge e : edges) {
             // go through the neighbors
             for (Edge n : e.neighbors) {
                 // if the neighbor has already been visited (same or higher
                 // normal_weight)
-                if (n != null && n.Mrk) {
+                if (n.Mrk) {
                     // get the root
                     Edge r = n.find();
                     // if the root is not the current edge
@@ -295,7 +269,9 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                             r.Fth = e;
                             // and give it the weight of the old root if it's
                             // heavier than this
-                            e.weight = Math.max(r.weight, e.weight);
+                            if (r.weight > e.weight) {
+                                e.weight = r.weight;
+                            }
                         } else {
                             // if they have different normal_weights AND the
                             // root is less heavy than the normal_weight
@@ -307,8 +283,8 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
             e.Mrk = true;
         }
         // set weight to normal_weight of roots (via backtracing)
-        Collections.reverse(edges);
-        for (Edge e : edges) {
+        for (int i = edges.size() - 1; i >= 0; i--) {
+            Edge e = edges.get(i);
             if (e.Fth == e) {
                 // p is root
                 if (e.weight == max) {
@@ -331,13 +307,11 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
         }
 
         Edge.weights = true;
-        Edge.ascending = false;
         Collections.sort(edges);
         for (Edge e_max : edges) {
-            if (e_max.visited) {
-                continue;
+            if (!e_max.visited) {
+                PowerWatershed(e_max);
             }
-            PowerWatershed(e_max);
         }
 
         // building the final proba map (find the root vertex of each tree)
@@ -389,13 +363,10 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                 sorted_weights.add(x);
             }
 
-            for (Edge edge : x.neighbors) {
-                if (edge != null) {
-                    if ((!visited.contains(edge)) && (edge.weight == e_max.weight)) {
-                        LIFO.add(edge);
-                        visited.add(edge);
-                        edge.visited = true;
-                    }
+            for (Edge neighbor : x.neighbors) {
+                if ((neighbor.weight == e_max.weight) && visited.add(neighbor)) {
+                    LIFO.add(neighbor);
+                    neighbor.visited = true;
                 }
             }
         }
@@ -433,7 +404,6 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                 // 5. Sort the edges of the plateau according to their
                 // normal weight
                 Edge.weights = false;
-                Edge.ascending = false;
                 Collections.sort(sorted_weights);
 
                 // Merge nodes for edges of real max weight
