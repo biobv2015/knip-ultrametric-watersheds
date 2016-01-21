@@ -24,42 +24,21 @@ import net.imglib2.view.Views;
 @Plugin(type = Op.class)
 public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> extends AbstractOp {
 
-    private static class Pixel {
-        private final long pointer;
-        int label;
-        Pixel Fth = this;
-
-        Pixel(long pointer) {
-            this.pointer = pointer;
-        }
-
-        Pixel find() {
-            if (Fth != this) {
-                Fth = Fth.find();
-            }
-            return Fth;
-        }
-
-        int getPointer() {
-            return (int) pointer;
-        }
-    }
-
     private static class Edge implements Comparable<Edge> {
         final double normal_weight;
         protected static long[] dimensions;
         double weight = 0;
         Edge[] neighbors;
         boolean visited;
-        final Pixel p1;
-        final Pixel p2;
+        final long p1;
+        final long p2;
         Edge Fth = this;
         boolean Mrk;
 
         static boolean weights;
         static boolean ascending;
 
-        Edge(Pixel p1, Pixel p2, double normal_weight) {
+        Edge(long p1, long p2, double normal_weight) {
             neighbors = new Edge[dimensions.length * 4 - 2];
             this.p1 = p1;
             this.p2 = p2;
@@ -101,24 +80,24 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
     }
 
     private class PseudoEdge implements Comparable<PseudoEdge> {
-        Pixel p1;
-        Pixel p2;
+        long p1;
+        long p2;
 
-        PseudoEdge(Pixel p, Pixel q) {
+        PseudoEdge(long p, long q) {
             p1 = p;
             p2 = q;
         }
 
         @Override
         public int compareTo(PseudoEdge p) {
-            if (indic_VP[(int) p1.pointer] < indic_VP[(int) p.p1.pointer]) {
+            if (indic_VP[(int) p1] < indic_VP[(int) p.p1]) {
                 return -1;
-            } else if (indic_VP[(int) p1.pointer] > indic_VP[(int) p.p1.pointer]) {
+            } else if (indic_VP[(int) p1] > indic_VP[(int) p.p1]) {
                 return 1;
             } else {
-                if (indic_VP[(int) p2.pointer] < indic_VP[(int) p.p2.pointer]) {
+                if (indic_VP[(int) p2] < indic_VP[(int) p.p2]) {
                     return -1;
-                } else if (indic_VP[(int) p2.pointer] > indic_VP[(int) p.p2.pointer]) {
+                } else if (indic_VP[(int) p2] > indic_VP[(int) p.p2]) {
                     return 1;
                 } else {
                     return 0;
@@ -140,11 +119,12 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
     private RandomAccessibleInterval<LabelingType<L>> output;
 
     float[][] proba;
-    Pixel[] gPixelsT;
     int[] rnk;
     int[] indic_VP;
     HashMap<Integer, L> int2label;
     HashMap<L, Integer> label2int;
+    long[] Fth;
+    int[] pixLabel;
 
     @Override
     public void run() {
@@ -160,7 +140,7 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
         double max = 100000;// 0000;
 
         final Cursor<LabelingType<L>> seedCursor = Views.iterable(seeds).localizingCursor();
-        ArrayList<Pixel> seedsL = new ArrayList<>();
+        ArrayList<Long> seedsL = new ArrayList<>();
         int2label = new HashMap<>();
         label2int = new HashMap<>();
 
@@ -173,9 +153,10 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
         for (long d : dimensions) {
             numOfPixels *= d;
         }
-        gPixelsT = new Pixel[(int) numOfPixels];
+        Fth = new long[(int) numOfPixels];
         rnk = new int[(int) numOfPixels];
         indic_VP = new int[(int) numOfPixels];
+        pixLabel = new int[(int) numOfPixels];
 
         long[] edgeDimesions = new long[dimensions.length];
         for (int i = 0; i < edgeDimesions.length; i++) {
@@ -196,19 +177,19 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
         final Cursor<T> imageCursor = Views.iterable(image).localizingCursor();
         double[] lastSlice = new double[(int) (numOfPixels / dimensions[dimensions.length - 1])];
 
-        for (int pointer = 0; pointer < gPixelsT.length; pointer++) {
+        for (int pointer = 0; pointer < numOfPixels; pointer++) {
+            Fth[pointer] = pointer;
             LabelingType<L> labeling = seedCursor.next();
-            gPixelsT[pointer] = new Pixel(pointer);
             if (labeling.size() != 0) {
                 L label = labeling.iterator().next();
                 if (!label2int.containsKey(label)) {
                     label2int.put(label, seedsL.size());
                     int2label.put(seedsL.size(), label);
-                    gPixelsT[pointer].label = seedsL.size();
+                    pixLabel[pointer] = seedsL.size();
                 } else {
-                    gPixelsT[pointer].label = label2int.get(label);
+                    pixLabel[pointer] = label2int.get(label);
                 }
-                seedsL.add(gPixelsT[pointer]);
+                seedsL.add((long) pointer);
             }
             double currentPixel = imageCursor.next().getRealDouble();
             int[] coords = toCoordinates(pointer, dimensions);
@@ -219,7 +200,7 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                     coords[coords.length - 1] = 0;
                     double normal_weight = max - Math.abs(lastSlice[toPointer(coords, dimensions)] - currentPixel);
                     coords[coords.length - 1] = tmp;
-                    Edge e = new Edge(gPixelsT[toPointer(coords, dimensions)], gPixelsT[pointer], normal_weight);
+                    Edge e = new Edge(toPointer(coords, dimensions), pointer, normal_weight);
                     dimensions[i] -= 1;
                     allEdges[(int) (edgeOffset[i] + toPointer(coords, dimensions))] = e;
                     dimensions[i] += 1;
@@ -237,10 +218,10 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
          * get the neighbor-information
          */
         for (Edge e : edges) {
-            int p1 = e.p1.getPointer();
-            int[] coord1 = toCoordinates(p1, dimensions);
-            int p2 = e.p2.getPointer();
-            int[] coord2 = toCoordinates(p2, dimensions);
+            long p1 = e.p1;
+            int[] coord1 = toCoordinates((int) p1, dimensions);
+            long p2 = e.p2;
+            int[] coord2 = toCoordinates((int) p2, dimensions);
             int edgeNumber = 0;
             for (int i = 0; i < dimensions.length; i++) {
                 dimensions[i] -= 1;
@@ -280,9 +261,9 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
          * The edges connected to seeds get the weight set as their
          * normal_weight
          */
-        for (Pixel p : seedsL) {
-            int pointer = p.getPointer();
-            int[] coord = toCoordinates(pointer, dimensions);
+        for (long p : seedsL) {
+            long pointer = p;
+            int[] coord = toCoordinates((int) pointer, dimensions);
             for (int i = 0; i < dimensions.length; i++) {
                 dimensions[i] -= 1;
                 if (coord[i] < dimensions[i] - 1) {
@@ -349,10 +330,10 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
             Arrays.fill(labelProb, -1);
         }
         // proba[i][j] =1 <=> pixel[i] has label j
-        for (Pixel pix : seedsL) {
-            int pixPointer = pix.getPointer();
+        for (long pix : seedsL) {
+            long pixPointer = pix;
             for (int j = 0; j < int2label.size() - 1; j++) {
-                proba[j][pixPointer] = int2label.get(pix.label) == int2label.get(j) ? 1 : 0;
+                proba[j][(int) pixPointer] = int2label.get(pixLabel[(int) pix]) == int2label.get(j) ? 1 : 0;
             }
         }
 
@@ -368,11 +349,11 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
         }
 
         // building the final proba map (find the root vertex of each tree)
-        for (Pixel j : gPixelsT) {
-            Pixel i = j.find();
+        for (int j = 0; j < numOfPixels; j++) {
+            long i = find(j);
             if (i != j) {
                 for (float[] labelProb : proba) {
-                    labelProb[j.getPointer()] = labelProb[i.getPointer()];
+                    labelProb[(int) j] = labelProb[(int) i];
                 }
             }
         }
@@ -412,9 +393,9 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
         // 2. putting the edges and vertices of the plateau into arrays
         while (!LIFO.empty()) {
             Edge x = LIFO.pop();
-            Pixel re1 = x.p1.find();
-            Pixel re2 = x.p2.find();
-            if (proba[0][re1.getPointer()] < 0 || proba[0][re2.getPointer()] < 0) {
+            long re1 = find(x.p1);
+            long re2 = find(x.p2);
+            if (proba[0][(int) re1] < 0 || proba[0][(int) re2] < 0) {
                 sorted_weights.add(x);
             }
 
@@ -438,12 +419,12 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                 int p = 0;
                 double val = -0.5;
                 for (Edge x : sorted_weights) {
-                    int xr = x.p1.find().getPointer();
+                    int xr = (int) find(x.p1);
                     if (Math.abs(proba[i][xr] - val) > EPSILON && proba[i][xr] >= 0) {
                         p++;
                         val = proba[i][xr];
                     }
-                    xr = x.p2.find().getPointer();
+                    xr = (int) find(x.p2);
                     if (Math.abs(proba[i][xr] - val) > EPSILON && proba[i][xr] >= 0) {
                         p++;
                         val = proba[i][xr];
@@ -466,16 +447,16 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                 Collections.sort(sorted_weights);
 
                 // Merge nodes for edges of real max weight
-                ArrayList<Pixel> pixelsLCP = new ArrayList<>(); // vertices
-                                                                // of a
-                                                                // plateau.
+                ArrayList<Long> pixelsLCP = new ArrayList<>(); // vertices
+                                                               // of a
+                                                               // plateau.
                 ArrayList<PseudoEdge> edgesLCP = new ArrayList<>();
                 for (Edge e : sorted_weights) {
-                    Pixel re1 = e.p1.find();
-                    Pixel re2 = e.p2.find();
+                    long re1 = find(e.p1);
+                    long re2 = find(e.p2);
                     if (e.normal_weight != e_max.weight) {
                         merge_node(re1, re2);
-                    } else if ((re1 != re2) && (proba[0][re1.getPointer()] < 0 || proba[0][re2.getPointer()] < 0)) {
+                    } else if ((re1 != re2) && (proba[0][(int) re1] < 0 || proba[0][(int) re2] < 0)) {
                         if (!pixelsLCP.contains(re1)) {
                             pixelsLCP.add(re1);
                         }
@@ -494,14 +475,14 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                     System.out.printf("Plateau too big (%d vertices,%d edges), RW is not performed\n", pixelsLCP.size(),
                             edgesLCP.size());
                     for (PseudoEdge pseudo : edgesLCP) {
-                        merge_node(pseudo.p1.find(), pseudo.p2.find());
+                        merge_node(find(pseudo.p1), find(pseudo.p2));
                     }
                 }
             } else {
                 // if different seeds = false
                 // 7. Merge nodes for edges of max weight
                 for (Edge edge : sorted_weights) {
-                    merge_node(edge.p1.find(), edge.p2.find());
+                    merge_node(find(edge.p1), find(edge.p2));
                 }
             }
         }
@@ -514,25 +495,25 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
      * @param pixelsLCP
      *            nodes of the plateau
      */
-    private void RandomWalker(ArrayList<PseudoEdge> edgesLCP, ArrayList<Pixel> pixelsLCP) {
+    private void RandomWalker(ArrayList<PseudoEdge> edgesLCP, ArrayList<Long> pixelsLCP) {
 
         int[] indic_sparse = new int[pixelsLCP.size()];
         int[] numOfSameEdges = new int[edgesLCP.size()];
-        ArrayList<Pixel> local_seeds = new ArrayList<>();
+        ArrayList<Long> local_seeds = new ArrayList<>();
 
         // Indexing the edges, and the seeds
         for (int i = 0; i < pixelsLCP.size(); i++) {
-            indic_VP[(int) pixelsLCP.get(i).pointer] = i;
+            indic_VP[pixelsLCP.get(i).intValue()] = i;
         }
 
         for (PseudoEdge pseudo : edgesLCP) {
-            if (indic_VP[(int) pseudo.p1.pointer] > indic_VP[(int) pseudo.p2.pointer]) {
-                Pixel tmp = pseudo.p1;
+            if (indic_VP[(int) pseudo.p1] > indic_VP[(int) pseudo.p2]) {
+                long tmp = pseudo.p1;
                 pseudo.p1 = pseudo.p2;
                 pseudo.p2 = tmp;
             }
-            indic_sparse[indic_VP[(int) pseudo.p1.pointer]]++;
-            indic_sparse[indic_VP[(int) pseudo.p2.pointer]]++;
+            indic_sparse[indic_VP[(int) pseudo.p1]]++;
+            indic_sparse[indic_VP[(int) pseudo.p2]]++;
         }
         Collections.sort(edgesLCP);
         for (int m = 0; m < edgesLCP.size(); m++) {
@@ -545,12 +526,12 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
         ArrayList<ArrayList<Float>> localLabelsList = new ArrayList<>();
         for (int i = 0; i < proba.length; i++) {
             ArrayList<Float> curLocLabel = new ArrayList<>();
-            for (Pixel p : pixelsLCP) {
-                if (proba[i][p.getPointer()] >= 0) {
+            for (long p : pixelsLCP) {
+                if (proba[i][(int) p] >= 0) {
                     if (local_seeds.size() <= curLocLabel.size()) {
                         local_seeds.add(p);
                     }
-                    curLocLabel.add(new Float(proba[i][p.getPointer()]));
+                    curLocLabel.add(new Float(proba[i][(int) p]));
                 }
             }
             localLabelsList.add(curLocLabel);
@@ -572,9 +553,9 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
 
         // fill the diagonal
         int rnz = 0;
-        for (Pixel p : pixelsLCP) {
+        for (long p : pixelsLCP) {
             if (!local_seeds.contains(p)) {
-                A.setEntry(rnz, rnz, indic_sparse[indic_VP[(int) p.pointer]]);
+                A.setEntry(rnz, rnz, indic_sparse[indic_VP[(int) p]]);
                 rnz++;
             }
         }
@@ -582,20 +563,20 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
         // node i
         int rnzs = 0;
         int rnzu = 0;
-        for (Pixel p : pixelsLCP) {
+        for (long p : pixelsLCP) {
             if (local_seeds.contains(p)) {
-                indic_sparse[indic_VP[(int) p.pointer]] = rnzs;
+                indic_sparse[indic_VP[(int) p]] = rnzs;
                 rnzs++;
             } else {
-                indic_sparse[indic_VP[(int) p.pointer]] = rnzu;
+                indic_sparse[indic_VP[(int) p]] = rnzu;
                 rnzu++;
             }
         }
 
         for (int k = 0; k < edgesLCP.size(); k++) {
             PseudoEdge e = edgesLCP.get(k);
-            int p1 = indic_VP[(int) e.p1.pointer];
-            int p2 = indic_VP[(int) e.p2.pointer];
+            int p1 = indic_VP[(int) e.p1];
+            int p2 = indic_VP[(int) e.p2];
             if (!local_seeds.contains(e.p1) && !local_seeds.contains(e.p2)) {
                 A.setEntry(indic_sparse[p1], indic_sparse[p2], -numOfSameEdges[k] - 1);
                 A.setEntry(indic_sparse[p2], indic_sparse[p1], -numOfSameEdges[k] - 1);
@@ -636,15 +617,15 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
             b = AXB.getSolver().solve(new Array2DRowRealMatrix(b)).getColumnVector(0).toArray();
 
             int cpt = 0;
-            for (Pixel p : pixelsLCP) {
+            for (long p : pixelsLCP) {
                 if (!local_seeds.contains(p)) {
-                    proba[l][p.getPointer()] = (float) b[cpt];
+                    proba[l][(int) p] = (float) b[cpt];
                     cpt++;
                 }
             }
             // Enforce boundaries exactly
             for (int k = 0; k < numOfSeededNodes; k++) {
-                proba[l][local_seeds.get(k).getPointer()] = local_labels[l][k];
+                proba[l][local_seeds.get(k).intValue()] = local_labels[l][k];
             }
         }
     }
@@ -658,32 +639,39 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
      * @param p2
      *            second pixel
      */
-    private void merge_node(Pixel p1, Pixel p2) {
+    private void merge_node(long p1, long p2) {
         // merge if p1!=p2 and one of them has no probability yet
-        if ((p1 != p2) && (proba[0][p1.getPointer()] < 0 || proba[0][p2.getPointer()] < 0)) {
+        if ((p1 != p2) && (proba[0][(int) p1] < 0 || proba[0][(int) p2] < 0)) {
             // link p1 and p2;
             // the Pixel with the smaller Rnk points to the other
             // if both have the same rank increase the rnk of p2
-            if (rnk[(int) p1.pointer] > rnk[(int) p2.pointer]) {
-                p2.Fth = p1;
+            if (rnk[(int) p1] > rnk[(int) p2]) {
+                Fth[(int) p2] = p1;
             } else {
-                if (rnk[(int) p1.pointer] == rnk[(int) p2.pointer]) {
-                    rnk[(int) p2.pointer]++;
+                if (rnk[(int) p1] == rnk[(int) p2]) {
+                    rnk[(int) p2]++;
                 }
-                p1.Fth = p2;
+                Fth[(int) p1] = p2;
             }
 
             // which one has proba[0] < 0? Fill proba[_][ex] with proba[_][ey]
-            if (proba[0][p1.getPointer()] < 0) {
+            if (proba[0][(int) p1] < 0) {
                 for (float[] labelProb : proba) {
-                    labelProb[p1.getPointer()] = labelProb[p2.getPointer()];
+                    labelProb[(int) p1] = labelProb[(int) p2];
                 }
             } else {
                 for (float[] labelProb : proba) {
-                    labelProb[p2.getPointer()] = labelProb[p1.getPointer()];
+                    labelProb[(int) p2] = labelProb[(int) p1];
                 }
             }
         }
+    }
+
+    private long find(long f) {
+        if (Fth[(int) f] != f) {
+            return find(Fth[(int) f]);
+        }
+        return f;
     }
 
     /**
