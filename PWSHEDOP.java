@@ -188,13 +188,14 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                 seedsL.add((long) pointer);
             }
             double currentPixel = imageCursor.next().getRealDouble();
-            int[] coords = toCoordinates(pointer, dimensions);
+            long[] coords = toCoordinates(pointer, dimensions);
             for (int i = 0; i < dimensions.length; i++) {
                 if (coords[i] > 0) {
                     coords[i] -= 1;
-                    int tmp = coords[coords.length - 1];
+                    long tmp = coords[coords.length - 1];
                     coords[coords.length - 1] = 0;
-                    double normal_weight = max - Math.abs(lastSlice[toPointer(coords, dimensions)] - currentPixel);
+                    double normal_weight = max
+                            - Math.abs(lastSlice[(int) toPointer(coords, dimensions)] - currentPixel);
                     coords[coords.length - 1] = tmp;
                     Edge e = new Edge(toPointer(coords, dimensions), pointer, normal_weight);
                     if (seedsL.contains(e.p1) || seedsL.contains(e.p2)) {
@@ -206,9 +207,9 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
                     coords[i] += 1;
                 }
             }
-            int tmp = coords[coords.length - 1];
+            long tmp = coords[coords.length - 1];
             coords[coords.length - 1] = 0;
-            lastSlice[toPointer(coords, dimensions)] = currentPixel;
+            lastSlice[(int) toPointer(coords, dimensions)] = currentPixel;
             coords[coords.length - 1] = tmp;
         }
         ArrayList<Edge> edges = new ArrayList<Edge>(Arrays.asList(allEdges));
@@ -217,11 +218,9 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
         Collections.sort(edges);
         // heaviest first
         for (Edge e : edges) {
-            /*
-             * get the neighbor-information
-             */
-            int[] coord1 = toCoordinates((int) e.p1, dimensions);
-            int[] coord2 = toCoordinates((int) e.p2, dimensions);
+            // get the neighbor-information
+            long[] coord1 = toCoordinates(e.p1, dimensions);
+            long[] coord2 = toCoordinates(e.p2, dimensions);
             e.neighbors = new HashSet<>();
             for (int i = 0; i < dimensions.length; i++) {
                 if (coord1[i] > 0) {
@@ -315,7 +314,7 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
         }
 
         // building the final proba map (find the root vertex of each tree)
-        for (int j = 0; j < numOfPixels; j++) {
+        for (long j = 0; j < numOfPixels; j++) {
             long i = find(j);
             if (i != j) {
                 for (float[] labelProb : proba) {
@@ -512,24 +511,17 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
         Array2DRowRealMatrix B = new Array2DRowRealMatrix(numOfUnseededNodes, numOfSeededNodes);
 
         // fill the diagonal
-        int rnz = 0;
-        for (long p : pixelsLCP) {
-            if (!local_seeds.contains(p)) {
-                A.setEntry(rnz, rnz, indic_sparse[indic_VP[(int) p]]);
-                rnz++;
-            }
-        }
         // A(i,i)=n means there are n edges on this plateau that are incident to
         // node i
+        int rnz = 0;
         int rnzs = 0;
         int rnzu = 0;
         for (long p : pixelsLCP) {
-            if (local_seeds.contains(p)) {
-                indic_sparse[indic_VP[(int) p]] = rnzs;
-                rnzs++;
+            if (!local_seeds.contains(p)) {
+                A.setEntry(rnz, rnz++, indic_sparse[indic_VP[(int) p]]);
+                indic_sparse[indic_VP[(int) p]] = rnzu++;
             } else {
-                indic_sparse[indic_VP[(int) p]] = rnzu;
-                rnzu++;
+                indic_sparse[indic_VP[(int) p]] = rnzs++;
             }
         }
 
@@ -659,9 +651,9 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
         }
     }
 
-    private int[] toCoordinates(int pointer, long[] dim) {
-        int[] coord = new int[dim.length];
-        int index = pointer;
+    private long[] toCoordinates(long pointer, long[] dim) {
+        long[] coord = new long[dim.length];
+        long index = pointer;
         for (int i = 0; i < dim.length; i++) {
             coord[i] = (int) (index % dim[i]);
             index /= dim[i];
@@ -669,8 +661,8 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
         return coord;
     }
 
-    private int toPointer(int[] coord, long[] dim) {
-        int pointer = coord[0];
+    private long toPointer(long[] coord, long[] dim) {
+        long pointer = coord[0];
         int mult = (int) dim[0];
         for (int i = 1; i < coord.length; i++) {
             pointer += coord[i] * mult;
