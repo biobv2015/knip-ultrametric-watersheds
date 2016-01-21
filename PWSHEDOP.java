@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Set;
 import java.util.Stack;
 
 import org.apache.commons.math3.linear.Array2DRowRealMatrix;
@@ -140,7 +141,7 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
         double max = 100000;// 0000;
 
         final Cursor<LabelingType<L>> seedCursor = Views.iterable(seeds).localizingCursor();
-        ArrayList<Long> seedsL = new ArrayList<>();
+        Set<Long> seedsL = new HashSet<Long>();
         int2label = new HashMap<>();
         label2int = new HashMap<>();
 
@@ -158,19 +159,15 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
         indic_VP = new int[(int) numOfPixels];
         pixLabel = new int[(int) numOfPixels];
 
-        long[] edgeDimesions = new long[dimensions.length];
-        for (int i = 0; i < edgeDimesions.length; i++) {
-            edgeDimesions[i] = numOfPixels - numOfPixels / dimensions[i];
-        }
         long[] edgeOffset = new long[dimensions.length];
         edgeOffset[0] = 0;
         for (int i = 1; i < edgeOffset.length; i++) {
-            edgeOffset[i] = edgeOffset[i - 1] + edgeDimesions[i - 1];
+            edgeOffset[i] = edgeOffset[i - 1] + numOfPixels - numOfPixels / dimensions[i - 1];
         }
 
         long numOfEdges = 0;
-        for (long d : edgeDimesions) {
-            numOfEdges += d;
+        for (int i = 0; i < dimensions.length; i++) {
+            numOfEdges += numOfPixels - numOfPixels / dimensions[i];
         }
         Edge[] allEdges = new Edge[(int) numOfEdges];
 
@@ -212,16 +209,14 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
             lastSlice[toPointer(coords, dimensions)] = currentPixel;
             coords[coords.length - 1] = tmp;
         }
-        ArrayList<Edge> edges = new ArrayList<>(Arrays.asList(allEdges));
+        ArrayList<Edge> edges = new ArrayList<Edge>(Arrays.asList(allEdges));
 
         /*
          * get the neighbor-information
          */
         for (Edge e : edges) {
-            long p1 = e.p1;
-            int[] coord1 = toCoordinates((int) p1, dimensions);
-            long p2 = e.p2;
-            int[] coord2 = toCoordinates((int) p2, dimensions);
+            int[] coord1 = toCoordinates((int) e.p1, dimensions);
+            int[] coord2 = toCoordinates((int) e.p2, dimensions);
             int edgeNumber = 0;
             for (int i = 0; i < dimensions.length; i++) {
                 dimensions[i] -= 1;
@@ -262,8 +257,7 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
          * normal_weight
          */
         for (long p : seedsL) {
-            long pointer = p;
-            int[] coord = toCoordinates((int) pointer, dimensions);
+            int[] coord = toCoordinates((int) p, dimensions);
             for (int i = 0; i < dimensions.length; i++) {
                 dimensions[i] -= 1;
                 if (coord[i] < dimensions[i] - 1) {
@@ -331,16 +325,14 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
         }
         // proba[i][j] =1 <=> pixel[i] has label j
         for (long pix : seedsL) {
-            long pixPointer = pix;
             for (int j = 0; j < int2label.size() - 1; j++) {
-                proba[j][(int) pixPointer] = int2label.get(pixLabel[(int) pix]) == int2label.get(j) ? 1 : 0;
+                proba[j][(int) pix] = int2label.get(pixLabel[(int) pix]) == int2label.get(j) ? 1 : 0;
             }
         }
 
         Edge.weights = true;
         Edge.ascending = false;
         Collections.sort(edges);
-
         for (Edge e_max : edges) {
             if (e_max.visited) {
                 continue;
@@ -393,9 +385,7 @@ public class PowerWatershedOp<T extends RealType<T>, L extends Comparable<L>> ex
         // 2. putting the edges and vertices of the plateau into arrays
         while (!LIFO.empty()) {
             Edge x = LIFO.pop();
-            long re1 = find(x.p1);
-            long re2 = find(x.p2);
-            if (proba[0][(int) re1] < 0 || proba[0][(int) re2] < 0) {
+            if (proba[0][(int) find(x.p1)] < 0 || proba[0][(int) find(x.p2)] < 0) {
                 sorted_weights.add(x);
             }
 
